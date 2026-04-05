@@ -3,208 +3,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Smart Menu Pro</title>
-    <link id="f-link" rel="stylesheet" href="">
+    <title>Menu Pro v4</title>
     <style>
         :root { --p: #000; --bg: #fff; --c-bg: #fff; --m-h: 180px; --m-fs: 2rem; --m-c: #fff; }
-        body { margin:0; font-family: sans-serif; background-color: var(--bg); min-height: 100vh; overflow-x: hidden; }
-        #bg-layer { position:fixed; inset:0; z-index:-1; background-size:cover; background-position:center; background-attachment:fixed; transition: 0.5s; }
-        
-        #loader { position:fixed; inset:0; background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:1000; }
-        .spin { width:40px; height:40px; border:4px solid #f3f3f3; border-top:4px solid #000; border-radius:50%; animation: s 1s linear infinite; }
+        body { margin:0; font-family: sans-serif; background-color: var(--bg); min-height: 100vh; transition: background 0.4s; }
+        #bg-layer { position:fixed; inset:0; z-index:-1; background-size:cover; background-position:center; transition: 0.5s ease-in-out; }
+        #loader { position:fixed; inset:0; background:#fff; display:flex; align-items:center; justify-content:center; z-index:1000; }
+        .spin { width:40px; height:40px; border:4px solid #eee; border-top:4px solid #000; border-radius:50%; animation: s 1s linear infinite; }
         @keyframes s { 100% { transform:rotate(360deg); } }
-
-        header { padding: 30px 15px; text-align:center; position:sticky; top:0; z-index:100; transition: 0.3s; }
-        .h-blur { background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-
-        #logo-wrap h1 { margin:0; font-size: var(--l-fs, 2rem); color: var(--l-c, #000); font-weight:900; text-transform:uppercase; cursor:pointer; }
-        #logo-wrap img { max-height: 80px; display:block; margin:0 auto; cursor:pointer; }
-        #subt { font-size: 0.95rem; font-weight: 600; margin-top:8px; display:none; }
-
-        .container { padding:15px; max-width:850px; margin:auto; }
-        
-        /* MACRO */
+        header { padding: 30px 15px; text-align:center; position:sticky; top:0; z-index:100; }
+        #logo-wrap h1 { margin:0; font-size: var(--l-fs, 2rem); color: var(--l-c, #000); font-weight:900; text-transform:uppercase; }
+        #logo-wrap img { max-height: 80px; display:block; margin:0 auto; }
+        .container { padding:15px; max-width:800px; margin:auto; }
         .m-list { display:flex; flex-direction:column; gap:15px; }
-        .m-card { height:var(--m-h); border-radius:25px; overflow:hidden; position:relative; display:flex; align-items:center; justify-content: center; cursor:pointer; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .m-card { height:var(--m-h); border-radius:25px; overflow:hidden; position:relative; display:flex; align-items:center; justify-content: center; cursor:pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
         .m-card img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:1; }
         .m-ov { position:absolute; inset:0; background:rgba(0,0,0,0.4); z-index:2; }
-        .m-txt { position:relative; z-index:3; color:var(--m-c); font-size:var(--m-fs); font-weight:900; text-transform:uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
-
-        /* CATEGORIE */
+        .m-txt { position:relative; z-index:3; color:var(--m-c); font-size:var(--m-fs); font-weight:900; text-transform:uppercase; }
         .c-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:15px; }
         .c-card { background: var(--c-bg); border-radius:20px; padding:12px; text-align:center; cursor:pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.06); }
         .c-card img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:15px; margin-bottom:10px; }
-        .c-card b { text-transform:uppercase; font-size:14px; color:#222; }
-
-        /* PIATTI */
-        .d-card { background: var(--c-bg); border-radius:20px; padding:15px; display:flex; align-items:center; margin-bottom:15px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
-        .d-img { width:80px; height:80px; object-fit:cover; border-radius:15px; margin-right:15px; }
-        .d-name { font-weight:800; font-size:1.1rem; margin:0; }
-        .d-price { font-weight:900; color:var(--p); margin-top:8px; font-size:1.2rem; }
-
-        .nav-back { display:inline-flex; align-items:center; padding:12px 25px; background:rgba(0,0,0,0.08); border-radius:50px; font-weight:800; margin-bottom:20px; cursor:pointer; }
-        .ani { animation: fadeIn 0.4s ease forwards; }
-        @keyframes fadeIn { from { opacity:0; transform:translateY(15px); } to { opacity:1; transform:translateY(0); } }
+        .d-card { background: var(--c-bg); border-radius:18px; padding:15px; display:flex; align-items:center; margin-bottom:12px; }
+        .d-img { width:80px; height:80px; object-fit:cover; border-radius:14px; margin-right:15px; }
+        .nav-back { display:inline-flex; align-items:center; padding:10px 20px; background:rgba(0,0,0,0.1); border-radius:50px; font-weight:800; margin-bottom:20px; cursor:pointer; }
     </style>
 </head>
 <body>
-
-<div id="loader"><div class="spin"></div></div>
-<div id="bg-layer"></div>
-
-<header id="h-main">
-    <div id="logo-wrap"></div>
-    <div id="subt"></div>
-</header>
-
-<div class="container">
-    <div id="view"></div>
-</div>
+    <div id="loader"><div class="spin"></div></div>
+    <div id="bg-layer"></div>
+    <header><div id="logo-wrap"></div><div id="subt"></div></header>
+    <div class="container"><div id="view"></div></div>
 
 <script>
     const SID = new URLSearchParams(window.location.search).get('id');
     let db = [], cfg = {}, st = { m: null, c: null };
 
-    // Pulizia estrema delle chiavi
-    const cl = (s) => s ? s.toString().toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/^_+|_+$/g, '') : '';
+    // Pulizia estrema per matchare i parametri
+    const normalize = (s) => s ? s.toString().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
 
-    async function init() {
+    async function loadData() {
         if(!SID) return;
+        const ts = Date.now();
         try {
-            const t = Date.now();
-            const [resC, resM] = await Promise.all([
-                fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:csv&sheet=Config&t=${t}`).then(r => r.text()),
-                fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:csv&sheet=Menu&t=${t}`).then(r => r.text())
+            const [rawC, rawM] = await Promise.all([
+                fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:csv&sheet=Config&v=${ts}`).then(r => r.text()),
+                fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:csv&sheet=Menu&v=${ts}`).then(r => r.text())
             ]);
 
-            // PARSER CONFIG (MOLTO AGGRESSIVO)
-            const rowsC = parseCSV(resC);
-            rowsC.forEach(r => {
-                // Cerchiamo le colonne indipendentemente dal nome esatto
-                const values = Object.values(r);
-                if (values.length >= 2) {
-                    const key = cl(values[0]);
-                    const val = values[1];
-                    if (key && !key.includes('parametro')) cfg[key] = val;
+            // PARSING CONFIG - LOGICA "BRUTA" (Ignora intestazioni, cerca solo coppie chiave-valore)
+            const rowsC = rawC.split('\n').map(row => row.split(',').map(cell => cell.replace(/^"|"$/g, '').trim()));
+            rowsC.forEach(row => {
+                if(row.length >= 2) {
+                    const key = normalize(row[0]);
+                    const val = row[1];
+                    if(key) cfg[key] = val;
                 }
             });
 
-            // PARSER MENU
-            db = parseCSV(resM).map(r => {
-                let n = {};
-                Object.keys(r).forEach(k => n[cl(k)] = r[k]);
-                return n;
-            }).filter(i => i.attivo === 'SI' || i.attivo === 'si');
+            // PARSING MENU
+            const rowsM = rawM.split('\n').map(row => row.split(',').map(cell => cell.replace(/^"|"$/g, '').trim()));
+            const headM = rowsM[0].map(h => normalize(h));
+            db = rowsM.slice(1).map(row => {
+                let obj = {};
+                headM.forEach((h, i) => obj[h] = row[i]);
+                return obj;
+            }).filter(i => normalize(i.attivo) === 'si');
 
-            console.log("Configurazione Caricata:", cfg);
-            applyStyles();
+            console.log("Configurazione Finale Applicata:", cfg);
+            
+            applyConfig();
             render();
             document.getElementById('loader').style.display = 'none';
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("Errore critico:", e); }
     }
 
-    function parseCSV(t) {
-        const rows = []; let f = '', q = false, r = [];
-        const cleanText = t.replace(/\r/g, "");
-        for (let i = 0; i < cleanText.length; i++) {
-            let c = cleanText[i], next = cleanText[i+1];
-            if (c === '"' && q && next === '"') { f += '"'; i++; }
-            else if (c === '"') q = !q;
-            else if (c === ',' && !q) { r.push(f.trim()); f = ''; }
-            else if (c === '\n' && !q) { r.push(f.trim()); rows.push(r); r = []; f = ''; }
-            else f += c;
-        }
-        if(f || r.length) { r.push(f.trim()); rows.push(r); }
-        const h = rows[0];
-        return rows.slice(1).map(row => h.reduce((acc, k, i) => ({...acc, [k]: row[i] || ""}), {}));
-    }
-
-    function applyStyles() {
+    function applyConfig() {
         const s = document.documentElement.style;
         const bg = document.getElementById('bg-layer');
         const lw = document.getElementById('logo-wrap');
-        const stx = document.getElementById('subt');
 
-        // Forza Sfondo
-        const bgType = cfg.app_bg_type || '';
-        if(bgType.toUpperCase() === 'IMAGE' && cfg.app_bg_image) {
-            bg.style.backgroundImage = `url('${cfg.app_bg_image}')`;
+        // 1. SFONDO (Forzato)
+        const isImage = normalize(cfg.appbgtype) === 'image';
+        if(isImage && cfg.appbgimage) {
+            bg.style.backgroundImage = `url('${cfg.appbgimage}')`;
             s.setProperty('--bg', 'transparent');
         } else {
-            s.setProperty('--bg', cfg.app_bg_color || '#f8f9fa');
+            s.setProperty('--bg', cfg.appbgcolor || '#f8f9fa');
+            bg.style.backgroundImage = 'none';
         }
 
-        // Logo / Titolo
-        if(cfg.logo_type === 'TEXT') {
-            lw.innerHTML = `<h1 onclick="home()">${cfg.logo_text || 'MENU'}</h1>`;
-            s.setProperty('--l-c', cfg.logo_text_color || '#000');
-            s.setProperty('--l-fs', cfg.logo_text_size || '2rem');
-        } else if(cfg.logo_url) {
-            lw.innerHTML = `<img src="${cfg.logo_url}" onclick="home()">`;
+        // 2. LOGO / NOME
+        if(normalize(cfg.logotype) === 'text') {
+            lw.innerHTML = `<h1 onclick="st.m=st.c=null;render()">${cfg.logotext || 'MENU'}</h1>`;
+            s.setProperty('--l-c', cfg.logotextcolor || '#000');
+            s.setProperty('--l-fs', cfg.logotextsize || '2rem');
+        } else if(cfg.logourl) {
+            lw.innerHTML = `<img src="${cfg.logourl}" onclick="st.m=st.c=null;render()">`;
         }
 
-        // Sottotitolo
-        if(cfg.show_subtitle === 'SI' && cfg.app_subtitle) {
-            stx.innerText = cfg.app_subtitle;
-            stx.style.display = 'block';
-            stx.style.color = cfg.subtitle_color || '#777';
-        }
-
-        s.setProperty('--p', cfg.theme_primary || '#000');
-        s.setProperty('--c-bg', cfg.card_bg || '#fff');
-        s.setProperty('--m-h', cfg.macro_height || '180px');
-        s.setProperty('--m-fs', cfg.macro_text_size || '2rem');
+        // 3. COLORI E GRANDEZZE
+        s.setProperty('--p', cfg.themeprimary || '#000');
+        s.setProperty('--c-bg', cfg.cardbg || '#fff');
+        s.setProperty('--m-h', cfg.macroheight || '180px');
+        s.setProperty('--m-fs', cfg.macrotextsize || '2rem');
+        s.setProperty('--m-c', cfg.macrotextcolor || '#fff');
     }
 
     function render() {
-        const out = document.getElementById('view');
-        out.innerHTML = '';
-        // Controlliamo il layout mode ignorando maiuscole/minuscole
-        const mode = (cfg.layout_mode || 'CATEGORIE').toUpperCase();
+        const view = document.getElementById('view');
+        const mode = normalize(cfg.layoutmode);
+        view.innerHTML = '';
 
-        if(mode === 'MACRO' && !st.m) {
+        if(mode === 'macro' && !st.m) {
             const ms = [...new Set(db.map(i => i.macro).filter(m => m))];
-            let h = `<div class="m-list ani">`;
+            let html = '<div class="m-list">';
             ms.forEach(m => {
-                const img = db.find(i => i.macro === m && i.cat_foto_url)?.cat_foto_url || '';
-                h += `<div class="m-card" onclick="setM('${m}')"><img src="${img}"><div class="m-ov"></div><span class="m-txt">${m}</span></div>`;
+                const img = db.find(i => i.macro === m && i.catfotourl)?.catfotourl || '';
+                html += `<div class="m-card" onclick="st.m='${m}';render()"><img src="${img}"><div class="m-ov"></div><span class="m-txt">${m}</span></div>`;
             });
-            out.innerHTML = h + '</div>';
-        } else if((mode === 'MACRO' && st.m && !st.c) || (mode !== 'MACRO' && !st.c)) {
-            let filtered = st.m ? db.filter(i => i.macro === st.m) : db;
-            const cs = [...new Set(filtered.map(i => i.categoria))];
-            let h = st.m ? `<div class="nav-back" onclick="setM(null)">← Indietro</div>` : '';
-            h += `<div class="c-grid ani">`;
-            cs.forEach(c => {
-                const img = filtered.find(i => i.categoria === c && i.cat_foto_url)?.cat_foto_url || '';
-                h += `<div class="c-card" onclick="setC('${c}')"><img src="${img}"><b>${c}</b></div>`;
+            view.innerHTML = html + '</div>';
+        } else if((mode === 'macro' && st.m && !st.c) || (mode !== 'macro' && !st.c)) {
+            const filtered = st.m ? db.filter(i => i.macro === st.m) : db;
+            const cats = [...new Set(filtered.map(i => i.categoria))];
+            let html = st.m ? `<div class="nav-back" onclick="st.m=null;render()">← Menu</div>` : '';
+            html += '<div class="c-grid">';
+            cats.forEach(c => {
+                const img = filtered.find(i => i.categoria === c && i.catfotourl)?.catfotourl || '';
+                html += `<div class="c-card" onclick="st.c='${c}';render()"><img src="${img}"><b>${c}</b></div>`;
             });
-            out.innerHTML = h + '</div>';
+            view.innerHTML = html + '</div>';
         } else {
-            let items = db.filter(i => i.categoria === st.c);
-            let h = `<div class="nav-back" onclick="setC(null)">← Indietro</div><div class="ani">`;
+            const items = db.filter(i => i.categoria === st.c);
+            let html = `<div class="nav-back" onclick="st.c=null;render()">← Indietro</div>`;
             items.forEach(i => {
-                let p = (i.prezzo || '0').toString();
-                if(p.includes(':')) p = p.split(':')[0] + '.' + p.split(':')[1];
-                h += `<div class="d-card">
-                    ${i.foto_url && i.foto_url !== 'https://' ? `<img src="${i.foto_url}" class="d-img">` : ''}
-                    <div style="flex:1">
-                        <div class="d-name">${i.nome_it}</div>
-                        <div style="font-size:0.9rem; color:#666; margin:4px 0;">${i.desc_it || ''}</div>
-                        <div class="d-price">${p}€</div>
+                html += `<div class="d-card">
+                    ${i.fotourl ? `<img src="${i.fotourl}" class="d-img">` : ''}
+                    <div>
+                        <div style="font-weight:900;">${i.nomeit}</div>
+                        <div style="font-size:0.8rem;color:#666;">${i.descit || ''}</div>
+                        <div style="color:var(--p);font-weight:900;margin-top:5px;">${i.prezzo}€</div>
                     </div>
                 </div>`;
             });
-            out.innerHTML = h + '</div>';
+            view.innerHTML = html;
         }
     }
-
-    window.setM = (v) => { st.m = v; render(); window.scrollTo(0,0); };
-    window.setC = (v) => { st.c = v; render(); window.scrollTo(0,0); };
-    window.home = () => { st.m = null; st.c = null; render(); };
-    window.onscroll = () => document.getElementById('h-main').classList.toggle('h-blur', window.scrollY > 20);
-
-    init();
+    loadData();
 </script>
 </body>
 </html>
