@@ -3,76 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Smart Menu Ultimate - Pro Edition</title>
+    <title>Smart Menu Ultimate - Enterprise Edition</title>
     <link id="font-link" rel="stylesheet" href="">
     <style>
         /* CSS RESET E VARIABILI DINAMICHE */
         :root {
             --app-bg: #fff; --primary: #000; 
+            
+            /* Stile Card Generale */
             --card-bg: #fff; --card-shadow: 0 4px 12px rgba(0,0,0,0.05);
             --card-border: 1px solid rgba(0,0,0,0.02); --card-padding: 15px;
+            
+            /* MACRO Aree (Cibo/Bevande) */
+            --macro-height: 200px; --macro-text-size: 2rem; --macro-text-color: #fff; 
+            --macro-text-weight: 900; --macro-text-align: center;
+            
+            /* Categorie e Piatti */
             --cat-img-size: 100px; --dish-img-size: 85px;
             --cat-title-size: 1.5rem; --cat-title-color: #000; --cat-title-align: left; --cat-title-weight: 800;
             --cat-text-align: center; --dish-text-align: left;
+            
             --dish-name-size: 1.1rem; --dish-name-color: #000; --dish-name-weight: bold;
             --desc-size: 0.85rem; --desc-color: #666; --desc-weight: normal;
             --price-size: 1.2rem; --price-color: #000; --price-weight: 800;
             --allergens-size: 0.75rem; --allergens-color: #e67e22; --allergens-weight: 500;
             --name-desc-gap: 4px; 
+            
             --sub-size: 0.9rem; --sub-color: #777; --sub-align: center; --sub-weight: 500;
         }
 
-        body { margin: 0; background: var(--app-bg); font-family: sans-serif; transition: 0.3s; color: #333; overflow-x: hidden; }
+        body { margin: 0; background-color: var(--app-bg); font-family: sans-serif; transition: 0.3s; color: #333; overflow-x: hidden; }
         * { box-sizing: border-box; }
 
         #loader { position:fixed; inset:0; background:var(--app-bg); display:flex; align-items:center; justify-content:center; z-index:1000; }
         .spinner { width: 40px; height: 40px; border: 4px solid rgba(0,0,0,0.1); border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
 
-        /* HEADER E SOTTOTITOLO */
-        header { padding: 25px 20px; text-align: center; position: sticky; top: 0; background: var(--app-bg); z-index: 10; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+        /* HEADER */
+        header { padding: 25px 20px; text-align: center; position: sticky; top: 0; background: transparent; z-index: 10; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+        .header-bg-solid { background: var(--app-bg); box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         #app-subtitle { font-size: var(--sub-size); color: var(--sub-color); text-align: var(--sub-align); font-weight: var(--sub-weight); margin-top: 10px; display: none; }
 
-        .container { padding: 15px 20px 80px; max-width: 800px; margin: auto; min-height: 80vh; }
+        .container { padding: 15px 20px 80px; max-width: 800px; margin: auto; min-height: 80vh; position: relative; z-index: 2; }
 
-        /* MOTORE DI RICERCA */
+        /* MOTORE DI RICERCA E NAVIGAZIONE */
         .search-container { margin-top: 15px; display: none; }
         .search-container input { width: 100%; padding: 12px 20px; border-radius: 30px; border: 1px solid #ddd; outline: none; font-size: 1rem; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
-
-        /* NAVIGAZIONE */
         .top-bar { display: flex; justify-content: flex-start; margin-bottom: 20px; }
-        .back-btn { padding: 8px 15px; background: rgba(0,0,0,0.05); color: var(--primary); font-weight: bold; border-radius: 20px; cursor: pointer; text-transform: uppercase; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 5px; }
+        .back-btn { padding: 8px 15px; background: rgba(0,0,0,0.08); color: var(--primary); font-weight: bold; border-radius: 20px; cursor: pointer; text-transform: uppercase; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 5px; backdrop-filter: blur(5px); }
         #scroll-top { position: fixed; bottom: 25px; right: 25px; background: var(--primary); color: white; width: 50px; height: 50px; border-radius: 50%; display: none; align-items: center; justify-content: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); cursor: pointer; z-index: 99; font-size: 24px; border: none; transition: 0.3s; }
 
-        /* LAYOUT SISTEMA (LIST vs GRID) */
+        /* LAYOUT SISTEMA */
         .layout-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
-        .layout-list { display: flex; flex-direction: column; gap: 10px; }
+        .layout-list { display: flex; flex-direction: column; gap: 12px; }
+
+        /* MACRO AREE (Cibo/Bevande) */
+        .macro-card { position: relative; height: var(--macro-height); border-radius: 15px; overflow: hidden; cursor: pointer; box-shadow: var(--card-shadow); display: flex; align-items: center; justify-content: var(--macro-text-align); padding: 20px; text-decoration: none; transition: transform 0.2s; background-size: cover; background-position: center; }
+        .macro-card::before { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,0.3); z-index: 1; transition: 0.3s; }
+        .macro-card:hover::before { background: rgba(0,0,0,0.4); }
+        .macro-card:active { transform: scale(0.98); }
+        .macro-title { position: relative; z-index: 2; color: var(--macro-text-color); font-size: var(--macro-text-size); font-weight: var(--macro-text-weight); text-transform: uppercase; margin: 0; width: 100%; text-align: var(--macro-text-align); text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
 
         /* TITOLI SEZIONI */
         .section-title { font-size: var(--cat-title-size); color: var(--cat-title-color); text-align: var(--cat-title-align); font-weight: var(--cat-title-weight); margin: 30px 0 15px; text-transform: uppercase; }
         
-        /* CARD */
+        /* CARD STANDARD */
         .card { background: var(--card-bg); border-radius: 15px; overflow: hidden; box-shadow: var(--card-shadow); border: var(--card-border); padding: var(--card-padding); transition: transform 0.2s; cursor: pointer; }
-        .card:active { transform: scale(0.98); }
-
-        /* STILI CATEGORIA */
+        
+        /* CATEGORIE */
         .cat-card-list { display: flex; align-items: center; justify-content: var(--cat-text-align); text-align: var(--cat-text-align); }
         .cat-card-grid { display: flex; flex-direction: column; align-items: center; text-align: center; }
-        .cat-img { width: var(--cat-img-size); height: var(--cat-img-size); object-fit: cover; background: #f0f0f0; flex-shrink: 0; }
+        .cat-img { width: var(--cat-img-size); height: var(--cat-img-size); object-fit: cover; background: rgba(0,0,0,0.05); flex-shrink: 0; }
         .cat-card-list .cat-img { margin-right: 15px; }
         .cat-card-grid .cat-img { margin-bottom: 15px; }
         .cat-name { font-size: var(--cat-title-size); color: var(--cat-title-color); font-weight: var(--cat-title-weight); text-transform: uppercase; margin: 0; width: 100%; }
 
-        /* STILI PIATTO */
+        /* PIATTI */
         .dish-card-list { display: flex; align-items: center; cursor: default; }
         .dish-card-grid { display: flex; flex-direction: column; cursor: default; }
-        .dish-img { width: var(--dish-img-size); height: var(--dish-img-size); object-fit: cover; background: #f0f0f0; flex-shrink: 0; }
-        
+        .dish-img { width: var(--dish-img-size); height: var(--dish-img-size); object-fit: cover; background: rgba(0,0,0,0.05); flex-shrink: 0; }
         .dish-card-list .dish-img { margin-right: 15px; }
         .dish-card-grid .dish-img { margin-bottom: 15px; margin-left: auto; margin-right: auto; }
-        
         .dish-info { flex: 1; display: flex; flex-direction: column; justify-content: center; width: 100%; text-align: var(--dish-text-align); }
-        
-        /* Spaziature e Pesi Controllati */
         .dish-name { font-size: var(--dish-name-size); color: var(--dish-name-color); font-weight: var(--dish-name-weight); margin: 0 0 var(--name-desc-gap) 0; }
         .dish-desc { font-size: var(--desc-size); color: var(--desc-color); font-weight: var(--desc-weight); margin: 0 0 6px 0; line-height: 1.3; }
         .dish-allergens { font-size: var(--allergens-size); color: var(--allergens-color); font-weight: var(--allergens-weight); margin: 0 0 4px 0; }
@@ -111,19 +122,20 @@
 
     let fullMenu = [];
     let config = {};
+    
+    // Livelli di navigazione
+    let currentMacro = null;
+    let currentCategory = null;
 
     async function init() {
         if(!SHEET_ID) { document.getElementById('loader').innerHTML = 'Manca ID configurazione'; return; }
         try {
-            // IL CACHE BUSTER: Aggiungiamo l'orario al millisecondo per forzare Google a darci l'ultimo aggiornamento
             const cacheBuster = `&_cache=${new Date().getTime()}`;
-            
             const [confRaw, menuRaw] = await Promise.all([
                 fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Config${cacheBuster}`).then(r => r.text()),
                 fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Menu${cacheBuster}`).then(r => r.text())
             ]);
             
-            // Creazione sicura della Configurazione (Ignora righe divisorie vuote)
             config = parseCSV(confRaw)
                 .filter(row => row.Parametro && row.Parametro.trim() !== '') 
                 .reduce((acc, row) => ({ ...acc, [row.Parametro]: row.Valore }), {});
@@ -133,44 +145,44 @@
             injectDynamicStyles();
             renderView();
             document.getElementById('loader').remove();
-        } catch (e) { document.getElementById('loader').innerText = "Errore di connessione dati."; console.error(e); }
+        } catch (e) { document.getElementById('loader').innerText = "Errore di connessione. Verifica i link."; console.error(e); }
     }
 
-    // IL PARSER CSV "ANTIPROIETTILE" (Non teme virgole nei testi o righe vuote)
     function parseCSV(str) {
         const result = [];
         let row = []; let col = ''; let insideQuotes = false;
-        
         for (let i = 0; i < str.length; i++) {
-            const char = str[i];
-            const nextChar = str[i + 1];
-
+            const char = str[i]; const nextChar = str[i + 1];
             if (char === '"') {
-                if (insideQuotes && nextChar === '"') { col += '"'; i++; } 
-                else { insideQuotes = !insideQuotes; }
-            } else if (char === ',' && !insideQuotes) {
-                row.push(col); col = '';
-            } else if (char === '\n' && !insideQuotes) {
-                row.push(col); result.push(row); row = []; col = '';
+                if (insideQuotes && nextChar === '"') { col += '"'; i++; } else { insideQuotes = !insideQuotes; }
+            } else if (char === ',' && !insideQuotes) { row.push(col); col = '';
+            } else if (char === '\n' && !insideQuotes) { row.push(col); result.push(row); row = []; col = '';
             } else { col += char; }
         }
         row.push(col); result.push(row);
-
         if(result.length === 0) return [];
         const headers = result[0].map(h => h.trim());
-        
-        return result.slice(1)
-            .filter(r => r.join('').trim() !== '') // Salta le righe vuote di separazione
-            .map(r => {
-                let obj = {};
-                headers.forEach((h, index) => { obj[h] = r[index] ? r[index].trim() : ''; });
-                return obj;
-            });
+        return result.slice(1).filter(r => r.join('').trim() !== '').map(r => {
+            let obj = {}; headers.forEach((h, index) => { obj[h] = r[index] ? r[index].trim() : ''; }); return obj;
+        });
     }
 
     function injectDynamicStyles() {
         const root = document.documentElement.style;
-        root.setProperty('--app-bg', config.App_Bg || '#fff');
+        
+        // GESTIONE SFONDI AVANZATA (Immagine vs Colore)
+        const bgType = config.App_Bg_Type || 'COLOR';
+        if(bgType === 'IMAGE' && config.App_Bg_Image) {
+            document.body.style.backgroundImage = `url('${config.App_Bg_Image}')`;
+            document.body.style.backgroundSize = config.App_Bg_Size || 'cover';
+            document.body.style.backgroundPosition = 'center center';
+            document.body.style.backgroundAttachment = 'fixed';
+            root.setProperty('--app-bg', 'transparent'); 
+        } else {
+            root.setProperty('--app-bg', config.App_Bg_Color || '#fff');
+            document.getElementById('main-header').classList.add('header-bg-solid');
+        }
+
         root.setProperty('--primary', config.Theme_Primary || '#000');
         
         if(config.Show_Cards === 'NO') {
@@ -178,14 +190,24 @@
             root.setProperty('--card-border', 'none'); root.setProperty('--card-padding', '10px 0');
         } else {
             root.setProperty('--card-bg', config.Card_Bg || '#fff');
-            root.setProperty('--card-shadow', '0 4px 12px rgba(0,0,0,0.05)');
-            root.setProperty('--card-border', '1px solid rgba(0,0,0,0.02)');
-            root.setProperty('--card-padding', '15px');
         }
 
+        // MACRO AREE
+        root.setProperty('--macro-height', config.Macro_Height || '200px');
+        root.setProperty('--macro-text-size', config.Macro_Text_Size || '2rem');
+        root.setProperty('--macro-text-color', config.Macro_Text_Color || '#fff');
+        root.setProperty('--macro-text-weight', config.Macro_Text_Weight || '900');
+        
+        let mAlign = config.Macro_Text_Align || 'center';
+        if(mAlign === 'left') mAlign = 'flex-start';
+        if(mAlign === 'right') mAlign = 'flex-end';
+        root.setProperty('--macro-text-align', mAlign);
+
+        // DIMENSIONI E FORME
         root.setProperty('--cat-img-size', config.Cat_Img_Size || '100px');
         root.setProperty('--dish-img-size', config.Dish_Img_Size || '85px');
         
+        // TIPOGRAFIA E PESI
         root.setProperty('--cat-title-size', config.Text_CatTitle_Size || '1.5rem');
         root.setProperty('--cat-title-color', config.Text_CatTitle_Color || '#000');
         root.setProperty('--dish-name-size', config.Text_DishName_Size || '1.1rem');
@@ -213,7 +235,6 @@
             sub.innerText = config.App_Subtitle; sub.style.display = 'block';
             root.setProperty('--sub-size', config.Subtitle_Size || '0.9rem');
             root.setProperty('--sub-color', config.Subtitle_Color || '#777');
-            root.setProperty('--sub-align', config.Subtitle_Align || 'center');
             root.setProperty('--sub-weight', config.Subtitle_Weight || '500');
         }
 
@@ -228,41 +249,74 @@
         }
     }
 
-    let currentCategory = null;
-
+    // IL MOTORE DI ROUTING PRINCIPALE
     function renderView() {
         const container = document.getElementById('app-container');
         container.innerHTML = '';
         document.getElementById('search-input').value = ''; 
         
-        // IL MASTER SWITCH DELLA PAGINA CATEGORIE: Se non scrivi 'UNICA', forzerà sempre le categorie!
-        const layoutMode = config.Layout_Mode === 'UNICA' ? 'UNICA' : 'CATEGORIE';
+        const mode = config.Layout_Mode || 'CATEGORIE';
 
-        if (layoutMode === 'CATEGORIE' && !currentCategory) {
-            renderCategoriesGrid(container);
-        } else if (layoutMode === 'CATEGORIE' && currentCategory) {
+        if (mode === 'MACRO' && !currentMacro) {
+            renderMacros(container);
+        } else if ((mode === 'MACRO' && currentMacro && !currentCategory) || (mode === 'CATEGORIE' && !currentCategory)) {
+            renderCategoriesGrid(container, currentMacro);
+        } else if (currentCategory) {
             renderCategoryDetail(container, currentCategory);
         } else {
             renderFullList(container);
         }
     }
 
-    function renderCategoriesGrid(container) {
-        const categories = [...new Set(fullMenu.map(i => i.Categoria))];
-        const layoutClass = config.Cat_Layout === 'GRID' ? 'layout-grid' : 'layout-list';
-        const cardClass = config.Cat_Layout === 'GRID' ? 'cat-card-grid' : 'cat-card-list';
-        const imgShape = `shape-${config.Cat_Img_Shape || 'rounded'}`;
-
+    // 1. RENDER MACRO (La nuova schermata Cibo / Bevande)
+    function renderMacros(container) {
+        // Estrapola le Macro uniche dal menu (ignorando quelle vuote)
+        const macros = [...new Set(fullMenu.map(i => i.Macro).filter(m => m))]; 
+        const layoutClass = config.Macro_Layout === 'GRID' ? 'layout-grid' : 'layout-list';
+        
         let html = `<div class="${layoutClass} fade-in">`;
-        categories.forEach(cat => {
-            const firstItem = fullMenu.find(i => i.Categoria === cat);
-            const catImg = firstItem && firstItem.Cat_Foto_URL ? `<img src="${firstItem.Cat_Foto_URL}" class="cat-img ${imgShape}">` : '';
-            html += `<div class="card ${cardClass}" onclick="openCategory('${cat}')">${catImg}<h2 class="cat-name">${cat}</h2></div>`;
+        macros.forEach(mac => {
+            // Cerca il primo elemento di questa macro per prendere una foto rappresentativa (oppure usa la Cat_Foto_URL)
+            const firstItem = fullMenu.find(i => i.Macro === mac && (i.Foto_URL || i.Cat_Foto_URL));
+            const bgImg = firstItem ? (firstItem.Cat_Foto_URL || firstItem.Foto_URL) : '';
+            
+            html += `
+                <div class="macro-card" style="background-image: url('${bgImg}');" onclick="openMacro('${mac}')">
+                    <h1 class="macro-title">${mac}</h1>
+                </div>`;
         });
         html += `</div>`;
         container.innerHTML = html;
     }
 
+    // 2. RENDER CATEGORIE (Filtrate per Macro se applicabile)
+    function renderCategoriesGrid(container, macroFilter = null) {
+        let items = macroFilter ? fullMenu.filter(i => i.Macro === macroFilter) : fullMenu;
+        const categories = [...new Set(items.map(i => i.Categoria))];
+        
+        const layoutClass = config.Cat_Layout === 'GRID' ? 'layout-grid' : 'layout-list';
+        const cardClass = config.Cat_Layout === 'GRID' ? 'cat-card-grid' : 'cat-card-list';
+        const imgShape = `shape-${config.Cat_Img_Shape || 'rounded'}`;
+
+        let html = '';
+        if (config.Layout_Mode === 'MACRO') {
+            const backTxt = (currentLang === 'es' ? 'Volver' : (currentLang === 'it' ? 'Indietro' : 'Home'));
+            html += `<div class="top-bar fade-in"><div class="back-btn" onclick="openMacro(null)">← ${backTxt}</div></div>`;
+            html += `<div class="section-title fade-in">${macroFilter}</div>`;
+        }
+
+        html += `<div class="${layoutClass} fade-in">`;
+        categories.forEach(cat => {
+            const firstItem = items.find(i => i.Categoria === cat);
+            const catImg = firstItem && firstItem.Cat_Foto_URL ? `<img src="${firstItem.Cat_Foto_URL}" class="cat-img ${imgShape}">` : '';
+            html += `<div class="card ${cardClass}" onclick="openCategory('${cat}')">${catImg}<h2 class="cat-name">${cat}</h2></div>`;
+        });
+        html += `</div>`;
+        container.innerHTML = html;
+        window.scrollTo(0,0);
+    }
+
+    // 3. RENDER PIATTI DELLA CATEGORIA
     function renderCategoryDetail(container, catName) {
         const items = fullMenu.filter(i => i.Categoria === catName);
         const backTxt = (currentLang === 'es' ? 'Volver' : (currentLang === 'it' ? 'Indietro' : 'Back'));
@@ -313,17 +367,28 @@
         return html;
     }
 
-    window.openCategory = function(catName) { currentCategory = catName; renderView(); };
+    // CONTROLLER DI STATO
+    window.openMacro = function(macName) { 
+        currentMacro = macName; 
+        currentCategory = null; // Resetta la categoria
+        renderView(); 
+    };
 
+    window.openCategory = function(catName) { 
+        currentCategory = catName; 
+        renderView(); 
+    };
+
+    // MOTORE DI RICERCA GLOBALE
     window.handleSearch = function() {
         const query = document.getElementById('search-input').value.toLowerCase();
         const container = document.getElementById('app-container');
-        const layoutMode = config.Layout_Mode === 'UNICA' ? 'UNICA' : 'CATEGORIE';
         
-        if (query.length > 0 && layoutMode === 'CATEGORIE' && !currentCategory) {
+        // Se sta cercando, forza la visualizzazione di tutto il menu
+        if (query.length > 0 && !currentCategory && !currentMacro && config.Layout_Mode !== 'UNICA') {
             renderFullList(container); 
-        } else if (query.length === 0 && layoutMode === 'CATEGORIE' && !currentCategory) {
-            renderCategoriesGrid(container); 
+        } else if (query.length === 0 && config.Layout_Mode !== 'UNICA') {
+            renderView(); // Torna allo stato originale
             return;
         }
 
