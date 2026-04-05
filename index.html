@@ -3,152 +3,165 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Menu Pro v4</title>
+    <title>Universal Dynamic PWA</title>
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <link id="dynamic-font" rel="stylesheet">
     <style>
-        :root { --p: #000; --bg: #fff; --c-bg: #fff; --m-h: 180px; --m-fs: 2rem; --m-c: #fff; }
-        body { margin:0; font-family: sans-serif; background-color: var(--bg); min-height: 100vh; transition: background 0.4s; }
-        #bg-layer { position:fixed; inset:0; z-index:-1; background-size:cover; background-position:center; transition: 0.5s ease-in-out; }
-        #loader { position:fixed; inset:0; background:#fff; display:flex; align-items:center; justify-content:center; z-index:1000; }
-        .spin { width:40px; height:40px; border:4px solid #eee; border-top:4px solid #000; border-radius:50%; animation: s 1s linear infinite; }
-        @keyframes s { 100% { transform:rotate(360deg); } }
-        header { padding: 30px 15px; text-align:center; position:sticky; top:0; z-index:100; }
-        #logo-wrap h1 { margin:0; font-size: var(--l-fs, 2rem); color: var(--l-c, #000); font-weight:900; text-transform:uppercase; }
-        #logo-wrap img { max-height: 80px; display:block; margin:0 auto; }
-        .container { padding:15px; max-width:800px; margin:auto; }
-        .m-list { display:flex; flex-direction:column; gap:15px; }
-        .m-card { height:var(--m-h); border-radius:25px; overflow:hidden; position:relative; display:flex; align-items:center; justify-content: center; cursor:pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-        .m-card img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:1; }
-        .m-ov { position:absolute; inset:0; background:rgba(0,0,0,0.4); z-index:2; }
-        .m-txt { position:relative; z-index:3; color:var(--m-c); font-size:var(--m-fs); font-weight:900; text-transform:uppercase; }
-        .c-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:15px; }
-        .c-card { background: var(--c-bg); border-radius:20px; padding:12px; text-align:center; cursor:pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.06); }
-        .c-card img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:15px; margin-bottom:10px; }
-        .d-card { background: var(--c-bg); border-radius:18px; padding:15px; display:flex; align-items:center; margin-bottom:12px; }
-        .d-img { width:80px; height:80px; object-fit:cover; border-radius:14px; margin-right:15px; }
-        .nav-back { display:inline-flex; align-items:center; padding:10px 20px; background:rgba(0,0,0,0.1); border-radius:50px; font-weight:800; margin-bottom:20px; cursor:pointer; }
+        :root { --primary-color: #000; --bg-app: #fff; }
+        body { margin: 0; transition: opacity 0.5s; font-family: sans-serif; background: var(--bg-app); }
+        #loader { 
+            position: fixed; top:0; left:0; width:100%; height:100%; 
+            display:flex; justify-content:center; align-items:center; background:#fff; z-index:999; 
+        }
+        /* Struttura Multi-Livello */
+        .category-header { padding: 20px; font-weight: bold; position: sticky; top:0; z-index:10; }
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; padding: 15px; }
+        .list-container { display: flex; flex-direction: column; gap: 10px; padding: 15px; }
+        .card { padding: 15px; border-radius: 12px; transition: transform 0.2s; position: relative; overflow: hidden; }
+        .card:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
-    <div id="loader"><div class="spin"></div></div>
-    <div id="bg-layer"></div>
-    <header><div id="logo-wrap"></div><div id="subt"></div></header>
-    <div class="container"><div id="view"></div></div>
+
+<div id="loader"><h1>Caricamento Divino...</h1></div>
+<div id="google_translate_element" style="display:none;"></div>
+
+<header id="main-header"></header>
+<nav id="filters"></nav>
+<main id="app-render"></main>
 
 <script>
-    const SID = new URLSearchParams(window.location.search).get('id');
-    let db = [], cfg = {}, st = { m: null, c: null };
+/**
+ * MOTORE LOGICO SUPREMO
+ */
+const urlParams = new URLSearchParams(window.location.search);
+const SHEET_ID = urlParams.get('id'); // Prende l'ID dall'URL ?id=...
 
-    // Pulizia estrema per matchare i parametri
-    const normalize = (s) => s ? s.toString().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+if (!SHEET_ID) {
+    document.body.innerHTML = "<h1>Errore: ID Cliente non specificato.</h1>";
+}
 
-    async function loadData() {
-        if(!SID) return;
-        const ts = Date.now();
-        try {
-            const [rawC, rawM] = await Promise.all([
-                fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:csv&sheet=Config&v=${ts}`).then(r => r.text()),
-                fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:csv&sheet=Menu&v=${ts}`).then(r => r.text())
-            ]);
+// URL di pubblicazione Google (Tab 0 e Tab 1 solitamente Config e Menu)
+// Nota: gid=0 è il primo foglio, gid=XXXXXXXX è il secondo.
+const CONFIG_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?gid=0&output=csv`;
+const MENU_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?gid=1832483838&output=csv`; // Sostituisci GID con quello del foglio Menu
 
-            // PARSING CONFIG - LOGICA "BRUTA" (Ignora intestazioni, cerca solo coppie chiave-valore)
-            const rowsC = rawC.split('\n').map(row => row.split(',').map(cell => cell.replace(/^"|"$/g, '').trim()));
-            rowsC.forEach(row => {
-                if(row.length >= 2) {
-                    const key = normalize(row[0]);
-                    const val = row[1];
-                    if(key) cfg[key] = val;
-                }
-            });
+async function initApp() {
+    try {
+        const configData = await fetchCSV(CONFIG_URL);
+        const menuData = await fetchCSV(MENU_URL);
+        
+        applyConfig(configData);
+        renderMenu(menuData, configData);
+        
+        document.getElementById('loader').style.display = 'none';
+        autoTranslate();
+    } catch (e) {
+        console.error("Errore nell'ascesa:", e);
+    }
+}
 
-            // PARSING MENU
-            const rowsM = rawM.split('\n').map(row => row.split(',').map(cell => cell.replace(/^"|"$/g, '').trim()));
-            const headM = rowsM[0].map(h => normalize(h));
-            db = rowsM.slice(1).map(row => {
-                let obj = {};
-                headM.forEach((h, i) => obj[h] = row[i]);
-                return obj;
-            }).filter(i => normalize(i.attivo) === 'si');
+function fetchCSV(url) {
+    return new Promise((resolve) => {
+        Papa.parse(`${url}&cachebuster=${new Date().getTime()}`, { // Pulizia Cache Automatica
+            download: true,
+            header: true,
+            complete: (results) => resolve(results.data)
+        });
+    });
+}
 
-            console.log("Configurazione Finale Applicata:", cfg);
+function applyConfig(config) {
+    const cfg = {};
+    config.forEach(row => cfg[row.Parametro] = row.Valore);
+    
+    const root = document.documentElement;
+    // Applicazione Font
+    if(cfg.Font_Main) {
+        document.getElementById('dynamic-font').href = `https://fonts.googleapis.com/css2?family=${cfg.Font_Main.replace(' ', '+')}&display=swap`;
+        document.body.style.setProperty('font-family', cfg.Font_Main);
+    }
+    
+    // Applicazione Colori e Stili
+    root.style.setProperty('--bg-app', cfg.App_Bg_Color || '#fff');
+    document.body.style.color = cfg.Logo_Text_Color || '#000';
+    
+    // Header
+    const header = document.getElementById('main-header');
+    header.innerHTML = cfg.Logo_Type === 'TEXT' ? `<h1>${cfg.Logo_Text}</h1>` : `<img src="${cfg.Logo_URL}" style="width:100px">`;
+    header.style.textAlign = 'center';
+}
+
+function renderMenu(data, config) {
+    const container = document.getElementById('app-render');
+    const cfg = {}; config.forEach(row => cfg[row.Parametro] = row.Valore);
+    
+    container.className = cfg.Cat_Layout === 'GRID' ? 'grid-container' : 'list-container';
+    
+    // Logica multi-livello: raggruppamento per Categoria
+    const categories = [...new Set(data.map(item => item.Categoria))];
+    
+    categories.forEach(cat => {
+        const catSection = document.createElement('div');
+        catSection.innerHTML = `<div class="category-header" style="background:${cfg.Filter_Active_Color}">${cat}</div>`;
+        
+        const items = data.filter(i => i.Categoria === cat && i.Attivo === 'SI');
+        items.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.style.background = cfg.Card_Bg;
+            if(cfg.Show_Cards === 'SI') card.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
             
-            applyConfig();
-            render();
-            document.getElementById('loader').style.display = 'none';
-        } catch (e) { console.error("Errore critico:", e); }
-    }
-
-    function applyConfig() {
-        const s = document.documentElement.style;
-        const bg = document.getElementById('bg-layer');
-        const lw = document.getElementById('logo-wrap');
-
-        // 1. SFONDO (Forzato)
-        const isImage = normalize(cfg.appbgtype) === 'image';
-        if(isImage && cfg.appbgimage) {
-            bg.style.backgroundImage = `url('${cfg.appbgimage}')`;
-            s.setProperty('--bg', 'transparent');
-        } else {
-            s.setProperty('--bg', cfg.appbgcolor || '#f8f9fa');
-            bg.style.backgroundImage = 'none';
-        }
-
-        // 2. LOGO / NOME
-        if(normalize(cfg.logotype) === 'text') {
-            lw.innerHTML = `<h1 onclick="st.m=st.c=null;render()">${cfg.logotext || 'MENU'}</h1>`;
-            s.setProperty('--l-c', cfg.logotextcolor || '#000');
-            s.setProperty('--l-fs', cfg.logotextsize || '2rem');
-        } else if(cfg.logourl) {
-            lw.innerHTML = `<img src="${cfg.logourl}" onclick="st.m=st.c=null;render()">`;
-        }
-
-        // 3. COLORI E GRANDEZZE
-        s.setProperty('--p', cfg.themeprimary || '#000');
-        s.setProperty('--c-bg', cfg.cardbg || '#fff');
-        s.setProperty('--m-h', cfg.macroheight || '180px');
-        s.setProperty('--m-fs', cfg.macrotextsize || '2rem');
-        s.setProperty('--m-c', cfg.macrotextcolor || '#fff');
-    }
-
-    function render() {
-        const view = document.getElementById('view');
-        const mode = normalize(cfg.layoutmode);
-        view.innerHTML = '';
-
-        if(mode === 'macro' && !st.m) {
-            const ms = [...new Set(db.map(i => i.macro).filter(m => m))];
-            let html = '<div class="m-list">';
-            ms.forEach(m => {
-                const img = db.find(i => i.macro === m && i.catfotourl)?.catfotourl || '';
-                html += `<div class="m-card" onclick="st.m='${m}';render()"><img src="${img}"><div class="m-ov"></div><span class="m-txt">${m}</span></div>`;
-            });
-            view.innerHTML = html + '</div>';
-        } else if((mode === 'macro' && st.m && !st.c) || (mode !== 'macro' && !st.c)) {
-            const filtered = st.m ? db.filter(i => i.macro === st.m) : db;
-            const cats = [...new Set(filtered.map(i => i.categoria))];
-            let html = st.m ? `<div class="nav-back" onclick="st.m=null;render()">← Menu</div>` : '';
-            html += '<div class="c-grid">';
-            cats.forEach(c => {
-                const img = filtered.find(i => i.categoria === c && i.catfotourl)?.catfotourl || '';
-                html += `<div class="c-card" onclick="st.c='${c}';render()"><img src="${img}"><b>${c}</b></div>`;
-            });
-            view.innerHTML = html + '</div>';
-        } else {
-            const items = db.filter(i => i.categoria === st.c);
-            let html = `<div class="nav-back" onclick="st.c=null;render()">← Indietro</div>`;
-            items.forEach(i => {
-                html += `<div class="d-card">
-                    ${i.fotourl ? `<img src="${i.fotourl}" class="d-img">` : ''}
+            card.innerHTML = `
+                <div style="display:flex; justify-content:space-between">
                     <div>
-                        <div style="font-weight:900;">${i.nomeit}</div>
-                        <div style="font-size:0.8rem;color:#666;">${i.descit || ''}</div>
-                        <div style="color:var(--p);font-weight:900;margin-top:5px;">${i.prezzo}€</div>
+                        <strong class="translatable">${item.Nome_IT}</strong>
+                        <p class="translatable" style="font-size:0.8rem; opacity:0.8">${item.Desc_IT}</p>
+                        <small style="color:red">${item.Allerg_IT || ''}</small>
                     </div>
-                </div>`;
-            });
-            view.innerHTML = html;
-        }
-    }
-    loadData();
+                    <div style="font-weight:bold">€${item.Prezzo}</div>
+                </div>
+            `;
+            catSection.appendChild(card);
+        });
+        container.appendChild(catSection);
+    });
+}
+
+// TRADUZIONE DIVINA IN 10+ LINGUE
+function autoTranslate() {
+    const userLang = navigator.language.split('-')[0];
+    if (userLang === 'it') return;
+
+    let script = document.createElement('script');
+    script.src = `https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit`;
+    document.head.appendChild(script);
+
+    window.googleTranslateElementInit = () => {
+        new google.translate.TranslateElement({
+            pageLanguage: 'it',
+            includedLanguages: 'en,fr,de,es,pt,ru,zh,ja,ar,hi',
+            autoDisplay: true
+        }, 'google_translate_element');
+        
+        // Forza la traduzione automatica senza interazione
+        setTimeout(() => {
+            const select = document.querySelector('.goog-te-combo');
+            if(select) {
+                select.value = userLang;
+                select.dispatchEvent(new Event('change'));
+            }
+        }, 1000);
+    };
+}
+
+// REGISTRAZIONE SERVICE WORKER (PWA)
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+}
+
+initApp();
 </script>
 </body>
 </html>
