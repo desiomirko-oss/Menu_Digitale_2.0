@@ -3,172 +3,234 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PWA Universal Engine</title>
+    <title>PWA Universal Master</title>
+    
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="manifest.json">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <link id="dynamic-font" rel="stylesheet">
+
     <style>
-        :root { --primary: #000; --bg: #fff; --accent: #ffcc00; }
-        body { margin: 0; font-family: sans-serif; background: var(--bg); color: var(--primary); overflow-x: hidden; }
+        :root { --accent: #ffcc00; --bg: #ffffff; --text: #000000; --card: #f9f9f9; }
         
+        body { 
+            margin: 0; padding: 0; font-family: sans-serif; 
+            background: var(--bg); color: var(--text); 
+            transition: background 0.5s ease;
+        }
+
         /* Schermata di Caricamento Divina */
         #loader { 
-            position: fixed; top:0; left:0; width:100%; height:100%; 
-            display:flex; flex-direction:column; justify-content:center; align-items:center; 
-            background: #fff; z-index:9999; transition: opacity 0.5s;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: #fff; display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; z-index: 9999;
+            transition: opacity 0.6s ease;
         }
-        .spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+        .spinner { 
+            width: 60px; height: 60px; border: 6px solid #f3f3f3; 
+            border-top: 6px solid var(--accent); border-radius: 50%; 
+            animation: spin 1s linear infinite; 
+        }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #loader-text { margin-top: 20px; font-weight: bold; font-size: 1.2rem; }
-        #slow-connection-msg { margin-top: 10px; font-size: 0.9rem; color: #666; display: none; text-align: center; padding: 0 20px; }
+        #loader-text { margin-top: 20px; font-weight: bold; font-size: 1.2rem; color: #333; }
+        #slow-msg { 
+            margin-top: 15px; font-size: 0.9rem; color: #888; 
+            max-width: 80%; text-align: center; display: none; 
+        }
+
+        /* Header e Logo */
+        header { padding: 40px 20px; text-align: center; }
+        header h1 { margin: 0; font-size: 2.5rem; }
+        header p { margin: 5px 0; opacity: 0.8; }
 
         /* Struttura Menu */
-        header { padding: 30px 20px; text-align: center; }
-        .category-block { margin-bottom: 30px; }
-        .category-title { padding: 15px; font-size: 1.5rem; font-weight: 900; text-transform: uppercase; position: sticky; top: 0; z-index: 100; }
-        
+        .category-section { margin-bottom: 40px; }
+        .category-title { 
+            padding: 15px 20px; font-size: 1.4rem; font-weight: 900; 
+            text-transform: uppercase; letter-spacing: 1px;
+            position: sticky; top: 0; z-index: 10;
+            background: var(--accent); color: #000;
+        }
+
         .layout-GRID { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; padding: 15px; }
         .layout-LIST { display: flex; flex-direction: column; gap: 12px; padding: 15px; }
 
-        .card { background: var(--card-bg, #fff); padding: 15px; border-radius: 15px; display: flex; flex-direction: column; justify-content: space-between; transition: 0.3s; }
-        .card-price { font-weight: bold; font-size: 1.2rem; margin-top: 10px; color: var(--accent); }
-        .card-desc { font-size: 0.85rem; opacity: 0.7; margin: 5px 0; }
+        .card { 
+            background: var(--card); padding: 18px; border-radius: 16px; 
+            display: flex; flex-direction: column; justify-content: space-between;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        .item-name { font-weight: bold; font-size: 1.1rem; }
+        .item-desc { font-size: 0.85rem; margin: 8px 0; opacity: 0.7; line-height: 1.3; }
+        .item-allergens { font-size: 0.75rem; color: #d9534f; font-style: italic; }
+        .item-price { font-weight: 900; font-size: 1.2rem; margin-top: 12px; color: var(--accent); }
+
+        /* Traduttore nascosto */
+        #google_translate_element { display: none; }
+        .goog-te-banner-frame { display: none !important; }
+        body { top: 0 !important; }
     </style>
 </head>
 <body>
 
-<div id="loader">
-    <div class="spinner"></div>
-    <div id="loader-text">Caricamento Divino...</div>
-    <div id="slow-connection-msg"></div> </div>
+    <div id="loader">
+        <div class="spinner"></div>
+        <div id="loader-text">Sincronizzazione Divina...</div>
+        <div id="slow-msg">Il collegamento è lento, ma il gusto sta arrivando...</div>
+    </div>
 
-<div id="google_translate_element" style="display:none;"></div>
-<header id="app-header"></header>
-<main id="app-render"></main>
+    <div id="google_translate_element"></div>
+
+    <header id="app-header"></header>
+    <main id="app-content"></main>
 
 <script>
-const params = new URLSearchParams(window.location.search);
-const SHEET_ID = params.get('id');
-
-// Messaggio di fallback se la linea è lenta (Configurabile dal foglio o hardcoded qui)
-const SLOW_MSG_DEFAULT = "Stiamo preparando le prelibatezze per te, ancora un istante...";
-
-// Funzione di emergenza: se dopo 4 secondi non ha caricato, mostra il messaggio
-const slowTimer = setTimeout(() => {
-    const msgElement = document.getElementById('slow-connection-msg');
-    msgElement.style.display = 'block';
-}, 4000);
-
-async function startEngine() {
-    if (!SHEET_ID) {
-        document.getElementById('loader-text').innerHTML = "⚠️ ID mancante nell'URL!<br><small>Usa ?id=TUO_ID</small>";
-        return;
-    }
-
-    try {
-        // Carichiamo i dati dai fogli (GID 0 per Config, GID specifico per Menu)
-        // TIP: Per trovare il GID del foglio Menu, aprilo nel browser e guarda la fine dell'URL (gid=XXXX)
-        const configData = await fetchCSV(0);
-        const cfg = {}; 
-        configData.forEach(r => cfg[r.Parametro] = r.Valore);
-
-        // Personalizziamo il caricamento con i dati del foglio se presenti
-        if(cfg.Loading_Msg) document.getElementById('slow-connection-msg').innerText = cfg.Loading_Msg;
-        else document.getElementById('slow-connection-msg').innerText = SLOW_MSG_DEFAULT;
-
-        const menuData = await fetchCSV(595974812); // <--- SOSTITUISCI QUESTO GID CON QUELLO DEL TUO FOGLIO MENU
-
-        applyDesign(cfg);
-        renderContent(menuData, cfg);
-        
-        clearTimeout(slowTimer);
-        document.getElementById('loader').style.opacity = '0';
-        setTimeout(() => document.getElementById('loader').style.display = 'none', 500);
-        
-        initTranslate();
-    } catch (err) {
-        document.getElementById('loader-text').innerHTML = "⚠️ Errore di Connessione.<br><small>Verifica che il foglio sia 'Pubblicato sul Web'</small>";
-        console.error(err);
-    }
-}
-
-function fetchCSV(gid) {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?gid=${gid}&output=csv&nocache=${Date.now()}`;
-    return new Promise((resolve, reject) => {
-        Papa.parse(url, {
-            download: true, header: true,
-            complete: r => r.data.length > 0 ? resolve(r.data) : reject("Empty"),
-            error: e => reject(e)
-        });
-    });
-}
-
-function applyDesign(cfg) {
-    const root = document.documentElement;
-    if(cfg.Font_Main) {
-        document.getElementById('dynamic-font').href = `https://fonts.googleapis.com/css2?family=${cfg.Font_Main.replace(/ /g, '+')}&display=swap`;
-        document.body.style.fontFamily = `'${cfg.Font_Main}', sans-serif`;
-    }
-    root.style.setProperty('--bg', cfg.App_Bg_Color || '#fff');
-    root.style.setProperty('--accent', cfg.Filter_Active_Color || '#ffcc00');
+    const urlParams = new URLSearchParams(window.location.search);
+    const SHEET_ID = urlParams.get('id');
     
-    const header = document.getElementById('app-header');
-    header.innerHTML = cfg.Logo_Type === 'TEXT' ? `<h1>${cfg.Logo_Text}</h1>` : `<img src="${cfg.Logo_URL}" style="max-height:80px">`;
-    header.innerHTML += cfg.Show_Subtitle === 'SI' ? `<p style="color:${cfg.Subtitle_Color}">${cfg.App_Subtitle}</p>` : '';
-}
+    // Timer per messaggi lenti
+    const slowConnection = setTimeout(() => {
+        const sm = document.getElementById('slow-msg');
+        if(sm) sm.style.display = 'block';
+    }, 3500);
 
-function renderContent(data, cfg) {
-    const main = document.getElementById('app-render');
-    const categories = [...new Set(data.map(i => i.Categoria))].filter(c => c);
+    async function initialize() {
+        if (!SHEET_ID) {
+            showError("Manca l'ID del foglio!<br>Aggiungi ?id=IL_TUO_ID all'URL.");
+            return;
+        }
 
-    categories.forEach(cat => {
-        const section = document.createElement('section');
-        section.className = 'category-block';
-        section.innerHTML = `<div class="category-title" style="background:${cfg.Filter_Active_Color || '#eee'}">${cat}</div>`;
-        
-        const grid = document.createElement('div');
-        grid.className = `layout-${cfg.Cat_Layout || 'LIST'}`;
-        
-        data.filter(i => i.Categoria === cat && i.Attivo === 'SI').forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'card';
-            if(cfg.Show_Cards === 'SI') card.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
-            card.style.background = cfg.Card_Bg || '#fff';
+        try {
+            // 1. Carica Config (GID 0 è il primo foglio)
+            const configData = await fetchGoogleSheet(SHEET_ID, 0);
+            const cfg = {};
+            configData.forEach(row => cfg[row.Parametro] = row.Valore);
 
-            card.innerHTML = `
-                <div>
-                    <div style="font-weight:bold; font-size:1.1rem">${item.Nome_IT}</div>
-                    <div class="card-desc">${item.Desc_IT || ''}</div>
-                    <div style="font-size:0.7rem; color:red">${item.Allerg_IT || ''}</div>
-                </div>
-                <div class="card-price">€${item.Prezzo}</div>
-            `;
-            grid.appendChild(card);
+            // Applica subito il messaggio di caricamento personalizzato se esiste
+            if(cfg.Loading_Msg) document.getElementById('slow-msg').innerText = cfg.Loading_Msg;
+
+            // 2. Carica Menu (Cerchiamo di intuire il GID del secondo foglio)
+            // Se hai un GID specifico, cambialo qui sotto. Altrimenti il sistema prova a 
+            // caricare il foglio 'Menu' se pubblicato correttamente.
+            const menuGid = "1832483838"; // <-- Inserisci qui il tuo GID numerico
+            const menuData = await fetchGoogleSheet(SHEET_ID, menuGid);
+
+            // 3. Costruisci l'universo
+            applyTheme(cfg);
+            renderMenu(menuData, cfg);
+
+            // 4. Libera la vista
+            clearTimeout(slowConnection);
+            hideLoader();
+            initTranslator();
+
+        } catch (err) {
+            showError("Connessione fallita.<br>Verifica che il foglio sia 'Pubblicato sul Web' come CSV.");
+            console.error(err);
+        }
+    }
+
+    async function fetchGoogleSheet(id, gid) {
+        // Forza il download CSV ignorando la cache del browser
+        const url = `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}&cachebuster=${Date.now()}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Sheet non raggiungibile");
+        const text = await response.text();
+        return new Promise(resolve => {
+            Papa.parse(text, { header: true, skipEmptyLines: true, complete: results => resolve(results.data) });
         });
+    }
+
+    function applyTheme(cfg) {
+        const root = document.documentElement;
         
-        section.appendChild(grid);
-        main.appendChild(section);
-    });
-}
+        // Font Dinamico
+        if(cfg.Font_Main) {
+            const link = document.getElementById('dynamic-font');
+            link.href = `https://fonts.googleapis.com/css2?family=${cfg.Font_Main.replace(/ /g, '+')}:wght@400;700;900&display=swap`;
+            document.body.style.fontFamily = `'${cfg.Font_Main}', sans-serif`;
+        }
 
-function initTranslate() {
-    const userLang = navigator.language.split('-')[0];
-    if (userLang === 'it') return;
-    
-    window.googleTranslateElementInit = () => {
-        new google.translate.TranslateElement({pageLanguage: 'it', autoDisplay: true}, 'google_translate_element');
-        setTimeout(() => {
-            const select = document.querySelector('.goog-te-combo');
-            if(select) { select.value = userLang; select.dispatchEvent(new Event('change')); }
-        }, 1500);
-    };
-    const s = document.createElement('script');
-    s.src = "//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
-    document.head.appendChild(s);
-}
+        // Colori
+        root.style.setProperty('--bg', cfg.App_Bg_Color || '#fff');
+        root.style.setProperty('--text', cfg.Logo_Text_Color || '#000');
+        root.style.setProperty('--accent', cfg.Filter_Active_Color || '#ffcc00');
+        root.style.setProperty('--card', cfg.Card_Bg || '#f9f9f9');
 
-startEngine();
+        // Header
+        const header = document.getElementById('app-header');
+        let logoHtml = cfg.Logo_Type === 'TEXT' ? `<h1>${cfg.Logo_Text}</h1>` : `<img src="${cfg.Logo_URL}" style="max-height:80px">`;
+        if(cfg.Show_Subtitle === 'SI') logoHtml += `<p style="color:${cfg.Subtitle_Color}; font-weight:${cfg.Subtitle_Weight}">${cfg.App_Subtitle}</p>`;
+        header.innerHTML = logoHtml;
+    }
+
+    function renderMenu(data, cfg) {
+        const content = document.getElementById('app-content');
+        const categories = [...new Set(data.map(i => i.Categoria))].filter(c => c);
+
+        categories.forEach(cat => {
+            const section = document.createElement('div');
+            section.className = 'category-section';
+            section.innerHTML = `<div class="category-title">${cat}</div>`;
+            
+            const list = document.createElement('div');
+            list.className = `layout-${cfg.Cat_Layout || 'LIST'}`;
+
+            data.filter(i => i.Categoria === cat && i.Attivo === 'SI').forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                if(cfg.Show_Cards === 'NO') card.style.boxShadow = 'none';
+                
+                card.innerHTML = `
+                    <div>
+                        <div class="item-name">${item.Nome_IT}</div>
+                        <div class="item-desc">${item.Desc_IT || ''}</div>
+                        ${item.Allerg_IT ? `<div class="item-allergens">⚠️ ${item.Allerg_IT}</div>` : ''}
+                    </div>
+                    <div class="item-price">€${item.Prezzo}</div>
+                `;
+                list.appendChild(card);
+            });
+            section.appendChild(list);
+            content.appendChild(section);
+        });
+    }
+
+    function initTranslator() {
+        const lang = navigator.language.split('-')[0];
+        if (lang === 'it') return;
+
+        window.googleTranslateElementInit = () => {
+            new google.translate.TranslateElement({pageLanguage: 'it', autoDisplay: true}, 'google_translate_element');
+            setTimeout(() => {
+                const sel = document.querySelector('.goog-te-combo');
+                if(sel) { sel.value = lang; sel.dispatchEvent(new Event('change')); }
+            }, 1000);
+        };
+        const s = document.createElement('script');
+        s.src = "//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+        document.head.appendChild(s);
+    }
+
+    function hideLoader() {
+        const l = document.getElementById('loader');
+        l.style.opacity = '0';
+        setTimeout(() => l.style.display = 'none', 600);
+    }
+
+    function showError(msg) {
+        document.getElementById('loader-text').innerHTML = `⚠️ ${msg}`;
+        document.querySelector('.spinner').style.display = 'none';
+    }
+
+    // Registrazione Service Worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+
+    window.onload = initialize;
 </script>
-
 </body>
 </html>
