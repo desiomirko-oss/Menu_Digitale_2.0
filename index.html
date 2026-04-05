@@ -3,32 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Smart Menu Ultimate - Pixel Perfect</title>
+    <title>Smart Menu Ultimate - Pro Edition</title>
     <link id="font-link" rel="stylesheet" href="">
     <style>
         /* CSS RESET E VARIABILI DINAMICHE */
         :root {
             --app-bg: #fff; --primary: #000; 
-            
-            /* Variabili Card Dinamiche */
             --card-bg: #fff; --card-shadow: 0 4px 12px rgba(0,0,0,0.05);
             --card-border: 1px solid rgba(0,0,0,0.02); --card-padding: 15px;
-            
-            /* Dimensioni Immagini */
             --cat-img-size: 100px; --dish-img-size: 85px;
-            
-            /* Tipografia, Allineamenti e Spessori */
             --cat-title-size: 1.5rem; --cat-title-color: #000; --cat-title-align: left; --cat-title-weight: 800;
             --cat-text-align: center; --dish-text-align: left;
-            
             --dish-name-size: 1.1rem; --dish-name-color: #000; --dish-name-weight: bold;
             --desc-size: 0.85rem; --desc-color: #666; --desc-weight: normal;
             --price-size: 1.2rem; --price-color: #000; --price-weight: 800;
             --allergens-size: 0.75rem; --allergens-color: #e67e22; --allergens-weight: 500;
-            
-            --name-desc-gap: 4px; /* Distanza Nome - Descrizione */
-
-            /* Sottotitolo */
+            --name-desc-gap: 4px; 
             --sub-size: 0.9rem; --sub-color: #777; --sub-align: center; --sub-weight: 500;
         }
 
@@ -125,26 +115,57 @@
     async function init() {
         if(!SHEET_ID) { document.getElementById('loader').innerHTML = 'Manca ID configurazione'; return; }
         try {
+            // IL CACHE BUSTER: Aggiungiamo l'orario al millisecondo per forzare Google a darci l'ultimo aggiornamento
+            const cacheBuster = `&_cache=${new Date().getTime()}`;
+            
             const [confRaw, menuRaw] = await Promise.all([
-                fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Config`).then(r => r.text()),
-                fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Menu`).then(r => r.text())
+                fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Config${cacheBuster}`).then(r => r.text()),
+                fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Menu${cacheBuster}`).then(r => r.text())
             ]);
-            config = parseCSV(confRaw).reduce((acc, row) => ({ ...acc, [row.Parametro]: row.Valore }), {});
-            fullMenu = parseCSV(menuRaw).filter(i => i.Attivo === 'SI');
+            
+            // Creazione sicura della Configurazione (Ignora righe divisorie vuote)
+            config = parseCSV(confRaw)
+                .filter(row => row.Parametro && row.Parametro.trim() !== '') 
+                .reduce((acc, row) => ({ ...acc, [row.Parametro]: row.Valore }), {});
+                
+            fullMenu = parseCSV(menuRaw).filter(i => i.Attivo && i.Attivo.trim().toUpperCase() === 'SI');
             
             injectDynamicStyles();
             renderView();
             document.getElementById('loader').remove();
-        } catch (e) { document.getElementById('loader').innerText = "Errore di connessione dati."; }
+        } catch (e) { document.getElementById('loader').innerText = "Errore di connessione dati."; console.error(e); }
     }
 
-    function parseCSV(text) {
-        const lines = text.split('\n').filter(l => l.trim() !== "");
-        const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
-        return lines.slice(1).map(line => {
-            const values = line.split(',').map(v => v.replace(/"/g, '').trim());
-            return headers.reduce((obj, h, i) => ({ ...obj, [h]: values[i] }), {});
-        });
+    // IL PARSER CSV "ANTIPROIETTILE" (Non teme virgole nei testi o righe vuote)
+    function parseCSV(str) {
+        const result = [];
+        let row = []; let col = ''; let insideQuotes = false;
+        
+        for (let i = 0; i < str.length; i++) {
+            const char = str[i];
+            const nextChar = str[i + 1];
+
+            if (char === '"') {
+                if (insideQuotes && nextChar === '"') { col += '"'; i++; } 
+                else { insideQuotes = !insideQuotes; }
+            } else if (char === ',' && !insideQuotes) {
+                row.push(col); col = '';
+            } else if (char === '\n' && !insideQuotes) {
+                row.push(col); result.push(row); row = []; col = '';
+            } else { col += char; }
+        }
+        row.push(col); result.push(row);
+
+        if(result.length === 0) return [];
+        const headers = result[0].map(h => h.trim());
+        
+        return result.slice(1)
+            .filter(r => r.join('').trim() !== '') // Salta le righe vuote di separazione
+            .map(r => {
+                let obj = {};
+                headers.forEach((h, index) => { obj[h] = r[index] ? r[index].trim() : ''; });
+                return obj;
+            });
     }
 
     function injectDynamicStyles() {
@@ -152,12 +173,9 @@
         root.setProperty('--app-bg', config.App_Bg || '#fff');
         root.setProperty('--primary', config.Theme_Primary || '#000');
         
-        // GESTIONE "SHOW CARDS"
         if(config.Show_Cards === 'NO') {
-            root.setProperty('--card-bg', 'transparent');
-            root.setProperty('--card-shadow', 'none');
-            root.setProperty('--card-border', 'none');
-            root.setProperty('--card-padding', '10px 0');
+            root.setProperty('--card-bg', 'transparent'); root.setProperty('--card-shadow', 'none');
+            root.setProperty('--card-border', 'none'); root.setProperty('--card-padding', '10px 0');
         } else {
             root.setProperty('--card-bg', config.Card_Bg || '#fff');
             root.setProperty('--card-shadow', '0 4px 12px rgba(0,0,0,0.05)');
@@ -165,11 +183,9 @@
             root.setProperty('--card-padding', '15px');
         }
 
-        // DIMENSIONI E FORME
         root.setProperty('--cat-img-size', config.Cat_Img_Size || '100px');
         root.setProperty('--dish-img-size', config.Dish_Img_Size || '85px');
         
-        // TIPOGRAFIA (Colori e Dimensioni)
         root.setProperty('--cat-title-size', config.Text_CatTitle_Size || '1.5rem');
         root.setProperty('--cat-title-color', config.Text_CatTitle_Color || '#000');
         root.setProperty('--dish-name-size', config.Text_DishName_Size || '1.1rem');
@@ -181,7 +197,6 @@
         root.setProperty('--allergens-size', config.Text_Allergens_Size || '0.75rem');
         root.setProperty('--allergens-color', config.Text_Allergens_Color || '#e67e22');
 
-        // SPESSORI (Font Weight) e DISTANZE
         root.setProperty('--cat-title-weight', config.Text_CatTitle_Weight || '800');
         root.setProperty('--dish-name-weight', config.Text_DishName_Weight || 'bold');
         root.setProperty('--desc-weight', config.Text_Desc_Weight || 'normal');
@@ -189,25 +204,20 @@
         root.setProperty('--allergens-weight', config.Text_Allergens_Weight || '500');
         root.setProperty('--name-desc-gap', config.Dish_Name_Desc_Gap || '4px');
 
-        // ALLINEAMENTI Testi
         root.setProperty('--cat-title-align', config.Text_CatTitle_Align || 'left');
         root.setProperty('--cat-text-align', config.Cat_Text_Align || 'center');
         root.setProperty('--dish-text-align', config.Dish_Text_Align || 'left');
 
-        // GESTIONE SOTTOTITOLO
         if(config.App_Subtitle) {
             const sub = document.getElementById('app-subtitle');
-            sub.innerText = config.App_Subtitle;
-            sub.style.display = 'block';
+            sub.innerText = config.App_Subtitle; sub.style.display = 'block';
             root.setProperty('--sub-size', config.Subtitle_Size || '0.9rem');
             root.setProperty('--sub-color', config.Subtitle_Color || '#777');
             root.setProperty('--sub-align', config.Subtitle_Align || 'center');
             root.setProperty('--sub-weight', config.Subtitle_Weight || '500');
         }
 
-        // Font, Logo, Search
         if(config.Font_Main) {
-            // Importiamo tutti i pesi principali per permettere le personalizzazioni
             document.getElementById('font-link').href = `https://fonts.googleapis.com/css2?family=${config.Font_Main.replace(/ /g, '+')}:wght@300;400;500;600;700;800;900&display=swap`;
             document.body.style.fontFamily = `'${config.Font_Main}', sans-serif`;
         }
@@ -225,9 +235,12 @@
         container.innerHTML = '';
         document.getElementById('search-input').value = ''; 
         
-        if (config.Layout_Mode === 'CATEGORIE' && !currentCategory) {
+        // IL MASTER SWITCH DELLA PAGINA CATEGORIE: Se non scrivi 'UNICA', forzerà sempre le categorie!
+        const layoutMode = config.Layout_Mode === 'UNICA' ? 'UNICA' : 'CATEGORIE';
+
+        if (layoutMode === 'CATEGORIE' && !currentCategory) {
             renderCategoriesGrid(container);
-        } else if (config.Layout_Mode === 'CATEGORIE' && currentCategory) {
+        } else if (layoutMode === 'CATEGORIE' && currentCategory) {
             renderCategoryDetail(container, currentCategory);
         } else {
             renderFullList(container);
@@ -305,10 +318,11 @@
     window.handleSearch = function() {
         const query = document.getElementById('search-input').value.toLowerCase();
         const container = document.getElementById('app-container');
+        const layoutMode = config.Layout_Mode === 'UNICA' ? 'UNICA' : 'CATEGORIE';
         
-        if (query.length > 0 && config.Layout_Mode === 'CATEGORIE' && !currentCategory) {
+        if (query.length > 0 && layoutMode === 'CATEGORIE' && !currentCategory) {
             renderFullList(container); 
-        } else if (query.length === 0 && config.Layout_Mode === 'CATEGORIE' && !currentCategory) {
+        } else if (query.length === 0 && layoutMode === 'CATEGORIE' && !currentCategory) {
             renderCategoriesGrid(container); 
             return;
         }
