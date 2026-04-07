@@ -3,79 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Smart Menu Pro - 3 Level Architecture</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <title>Smart Menu Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
-        :root { --p: #000; --bg: #f8f9fa; --c-bg: #fff; --f-main: 'Segoe UI', sans-serif; }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { margin:0; font-family: var(--f-main); background-color: var(--bg); min-height: 100vh; color: #222; overflow-x: hidden; }
-        
-        /* Sfondo Dinamico */
-        #bg-layer { position:fixed; inset:0; z-index:-1; background-size: cover; background-repeat: no-repeat; transition: 0.8s ease; }
-        
-        /* Loader Enterprise */
-        #loader { position:fixed; inset:0; background:rgba(255,255,255,0.95); backdrop-filter:blur(10px); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:1000; transition: opacity 0.5s ease; }
-        .spin { width:50px; height:50px; border:4px solid #f0f0f0; border-top:4px solid var(--p); border-radius:50%; animation: s 1s linear infinite; }
+        :root { --p: #000; --bg: #f8f9fa; --f-main: 'Segoe UI', sans-serif; }
+        body { margin:0; font-family: var(--f-main); background: var(--bg); color: #222; }
+        #loader { position:fixed; inset:0; background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:2000; transition: 0.5s; }
+        .spin { width:40px; height:40px; border:4px solid #eee; border-top:4px solid var(--p); border-radius:50%; animation: s 1s linear infinite; }
         @keyframes s { 100% { transform:rotate(360deg); } }
-
-        /* Header */
-        header { padding: 40px 20px; text-align:center; position:sticky; top:0; z-index:100; transition: 0.3s; }
-        .h-blur { background: rgba(255,255,255,0.85); backdrop-filter: blur(15px); box-shadow: 0 4px 30px rgba(0,0,0,0.08); padding: 15px 20px; }
-        
-        #logo-wrap h1 { margin:0; font-size: var(--l-fs, 2.5rem); color: var(--l-c, #000); font-weight:900; text-transform:uppercase; cursor:pointer; line-height: 1.1; }
-        #logo-wrap img { height: var(--l-img-s, 150px); max-width: 100%; object-fit: contain; display:block; margin:0 auto; cursor:pointer; }
-        #subt { font-size: var(--s-fs, 1rem); margin-top:8px; font-weight: 600; color: var(--s-c, #000); text-transform: uppercase; letter-spacing: 2px; }
-
-        .container { padding:15px; max-width:800px; margin:auto; min-height: 70vh; padding-bottom: 50px; }
-
-        /* Layout Griglia e Lista */
+        header { padding: 30px 20px; text-align:center; position:sticky; top:0; z-index:100; background:rgba(255,255,255,0.9); backdrop-filter:blur(10px); }
+        #logo-wrap img { max-height: 80px; width:auto; }
+        .container { padding:15px; max-width:800px; margin:auto; }
         .grid { display:grid; grid-template-columns: 1fr 1fr; gap:15px; }
         .list { display:flex; flex-direction:column; gap:15px; }
-
-        /* Livelli 1 & 2: Card Full Immagine */
-        .card-img { 
-            height: var(--h); border-radius: 20px; overflow:hidden; position:relative; 
-            display:flex; align-items:center; justify-content: center; cursor:pointer;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.12); transition: transform 0.2s;
-        }
-        .card-img:active { transform: scale(0.96); }
-        .card-img img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:1; }
-        .card-img .ov { position:absolute; inset:0; background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 100%); z-index:2; }
-        .card-img span { position:relative; z-index:3; color: var(--txt-c); font-size: var(--txt-s); font-weight:900; text-transform:uppercase; text-align:center; padding:15px; letter-spacing: 1px; }
-
-        /* Livello 2: Card Testo (Se Cat_Img_Show = NO o manca foto) */
-        .card-text {
-            background: var(--c-bg); border-radius: 15px; padding: 25px 20px; text-align: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05); cursor: pointer; border: 1px solid #eaeaea; transition: 0.2s;
-        }
-        .card-text:active { transform: scale(0.98); background: #f8f8f8; }
-        .card-text span { font-weight: 800; font-size: 1.2rem; text-transform: uppercase; color: var(--txt-c); }
-
-        /* Livello 3: Dettaglio Piatti */
-        .dish-card { 
-            background: var(--c-bg); border-radius: 20px; padding: 18px; display:flex; align-items:center; 
-            margin-bottom: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); border: 1px solid #f0f0f0;
-        }
-        .dish-img { width: 95px; height: 95px; object-fit:cover; border-radius: 14px; margin-right: 18px; }
-        .dish-info { flex:1; }
-        .dish-name { font-weight: 800; font-size: 1.2rem; margin:0; color: #111; line-height: 1.2; }
-        .dish-desc { font-size: 0.9rem; color: #666; margin: 6px 0; line-height: 1.4; }
-        .dish-allergies { font-size: 0.75rem; color: #c0392b; font-weight: 600; margin-top: 4px; display: inline-block; padding: 2px 8px; background: #fadbd8; border-radius: 20px; }
-        .dish-price { font-weight: 900; color: var(--p); font-size: 1.3rem; margin-top: 8px; }
-
-        .back-nav { display:inline-flex; align-items:center; padding:12px 25px; background:#111; color:#fff; border-radius:50px; font-weight:800; margin-bottom:25px; cursor:pointer; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
-        
-        .ani { animation: fadeUp 0.4s ease-out forwards; }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        .card-img { height: 180px; border-radius: 20px; overflow:hidden; position:relative; cursor:pointer; box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        .card-img img { width:100%; height:100%; object-fit:cover; }
+        .card-img .ov { position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.7), transparent); }
+        .card-img span { position:absolute; bottom:15px; left:0; right:0; color:#fff; font-weight:900; text-align:center; text-transform:uppercase; font-size:1.4rem; }
+        .dish-card { background:#fff; border-radius:15px; padding:15px; display:flex; margin-bottom:12px; border:1px solid #eee; }
+        .dish-img { width:80px; height:80px; object-fit:cover; border-radius:10px; margin-right:15px; }
+        .dish-name { font-weight:800; font-size:1.1rem; }
+        .dish-price { font-weight:900; color:var(--p); margin-top:5px; }
+        .back-nav { display:inline-block; padding:10px 20px; background:#000; color:#fff; border-radius:50px; margin-bottom:20px; cursor:pointer; font-size:12px; font-weight:bold; }
     </style>
 </head>
 <body>
 
-<div id="loader">
-    <div class="spin"></div>
-    <p id="l-msg" style="margin-top:20px; font-weight:700; color:#333; letter-spacing: 1px;">CARICAMENTO...</p>
-</div>
-<div id="bg-layer"></div>
+<div id="loader"><div class="spin"></div><p id="l-msg">Caricamento menu...</p></div>
 
 <header id="h-main">
     <div id="logo-wrap"></div>
@@ -86,17 +42,16 @@
     <div id="view"></div>
 </div>
 
+<script src="app.js"></script>
 <script>
     const SID = new URLSearchParams(window.location.search).get('id');
     const LANG = navigator.language.split('-')[0].toLowerCase();
     let db = [], cfg = {}, st = { m: null, c: null };
 
-    // Sanitizzazione stringhe
     const cl = (s) => s ? s.toString().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
 
-    // Traduttore Neurale Silenzioso
     async function translate(text) {
-        if (!text || LANG === 'it' || text.startsWith('http')) return text;
+        if (!text || LANG === 'it' || text.length < 2) return text;
         try {
             const res = await axios.get(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=it&tl=${LANG}&dt=t&q=${encodeURI(text)}`);
             return res.data[0][0][0];
@@ -104,144 +59,80 @@
     }
 
     async function init() {
-        if(!SID) {
-            document.getElementById('l-msg').innerText = "Nessun ID Fornito";
-            return;
-        }
-        const ts = Date.now();
+        if(!SID) { document.getElementById('l-msg').innerText = "ID mancante"; return; }
         try {
+            const ts = Date.now();
             const [csvC, csvM] = await Promise.all([
                 fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:csv&sheet=Config&v=${ts}`).then(r => r.text()),
                 fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:csv&sheet=Menu&v=${ts}`).then(r => r.text())
             ]);
 
-            // Costruzione Dizionario Configurazione
             csvC.split('\n').forEach(row => {
                 const p = row.split(',').map(c => c.replace(/^"|"$/g, '').trim());
                 if(p.length >= 2) cfg[cl(p[0])] = p[1];
             });
 
-            // Costruzione Database Menu
             const rowsM = csvM.split('\n').map(row => row.split(',').map(c => c.replace(/^"|"$/g, '').trim()));
             const headM = rowsM[0].map(h => cl(h));
-            
-            const rawItems = rowsM.slice(1).map(row => {
+            db = rowsM.slice(1).map(row => {
                 let obj = {};
                 headM.forEach((h, i) => obj[h] = row[i]);
                 return obj;
             }).filter(i => cl(i.attivo) === 'si');
 
-            // Motore di Traduzione (se necessario)
             if (LANG !== 'it') {
-                document.getElementById('l-msg').innerText = "TRADUZIONE IN CORSO...";
-                for (let i of rawItems) {
+                document.getElementById('l-msg').innerText = "Traduzione...";
+                for (let i of db) {
                     i.nomeit = await translate(i.nomeit);
-                    i.descit = await translate(i.descit);
                     i.categoria = await translate(i.categoria);
                     i.macro = await translate(i.macro);
-                    i.allergit = await translate(i.allergit);
                 }
             }
-            db = rawItems;
 
-            applyStyles();
             render();
-            
-            // Gestione Timer Loader da Config
-            const lTime = parseInt(cfg.loadertime) || 500;
-            setTimeout(() => {
-                const loader = document.getElementById('loader');
-                loader.style.opacity = '0';
-                setTimeout(() => loader.remove(), 500);
-            }, lTime);
-
-        } catch (e) { console.error("Errore Fatale:", e); document.getElementById('l-msg').innerText = "ERRORE DI CONNESSIONE"; }
-    }
-
-    function applyStyles() {
-        const s = document.documentElement.style;
-        const lw = document.getElementById('logo-wrap');
-        const bgLayer = document.getElementById('bg-layer');
-        
-        // Sfondo Config
-        if(cl(cfg.appbgtype) === 'image' && cfg.appbgimage) {
-            bgLayer.style.backgroundImage = `url('${cfg.appbgimage}')`;
-            bgLayer.style.backgroundPosition = cfg.appbgpos || 'center center';
-            bgLayer.style.backgroundSize = cfg.appbgsize || 'cover';
-            s.setProperty('--bg', 'transparent');
-        } else {
-            s.setProperty('--bg', cfg.appbgcolor || '#f8f9fa');
-        }
-
-        // Header Config
-        if(cl(cfg.logotype) === 'image' && cfg.logourl) {
-            lw.innerHTML = `<img src="${cfg.logourl}" onclick="nav(null, null)">`;
-            s.setProperty('--l-img-s', cfg.logoimgsize || '150px');
-        } else {
-            lw.innerHTML = `<h1 onclick="nav(null, null)">${cfg.logotext || 'MENU'}</h1>`;
-            s.setProperty('--l-c', cfg.logotextcolor || '#000');
-            s.setProperty('--l-fs', cfg.logotextsize || '2.5rem');
-        }
-
-        if(cl(cfg.appsubtitle)) {
-            const stx = document.getElementById('subt');
-            stx.innerText = cfg.appsubtitle;
-            s.setProperty('--s-fs', cfg.subtitlesize || '1rem');
-            s.setProperty('--s-c', cfg.subtitlecolor || '#000');
-            if(cfg.subtitlefont) stx.style.fontFamily = cfg.subtitlefont;
-        }
-
-        // Palette Globale
-        s.setProperty('--p', cfg.logotextcolor || '#050000'); // Colore primario
-        s.setProperty('--c-bg', '#ffffff');
-        if(cfg.fontmain) s.setProperty('--f-main', cfg.fontmain);
-        
-        // Loader Color
-        if(cfg.loadertimecolor) {
-            document.querySelector('.spin').style.borderTopColor = cfg.loadertimecolor;
-            document.getElementById('l-msg').style.color = cfg.loadertimecolor;
+            document.getElementById('loader').style.display = 'none';
+        } catch (e) { 
+            console.error(e); 
+            document.getElementById('l-msg').innerText = "Errore dati. Controlla il foglio."; 
         }
     }
-
-    // Navigazione centralizzata
-    window.nav = (m, c) => { st.m = m; st.c = c; render(); window.scrollTo(0,0); };
 
     function render() {
         const out = document.getElementById('view');
+        const lw = document.getElementById('logo-wrap');
+        lw.innerHTML = cfg.logourl ? `<img src="${cfg.logourl}" onclick="nav(null,null)">` : `<h1>${cfg.logotext || 'MENU'}</h1>`;
         out.innerHTML = '';
 
-        // STRUTTURA A 3 LIVELLI RIGIDA
-        
         if (!st.m) {
-            // LIVELLO 1: MACRO
-            const macros = [...new Set(db.map(i => i.macro).filter(Boolean))];
-            let html = `<div class="${cl(cfg.macrolayout) === 'grid' ? 'grid' : 'list'} ani">`;
-            
-            macros.forEach(m => {
-                // Recupera immagine macro dal config (es: Macro_Img_Cibo -> macroimgcibo)
-                let img = cfg['macroimg' + cl(m)];
-                // Fallback: cerca la prima foto valida nei piatti di questa macro
-                if(!img) img = db.find(i => i.macro === m && i.fotourl?.startsWith('http'))?.fotourl || '';
-                
-                html += `
-                <div class="card-img" style="--h: ${cfg.macroheight || '240px'}; --txt-c: ${cfg.macrotextcolor || '#fff'}; --txt-s: ${cfg.macrotextsize || '2.2rem'};" onclick="nav('${m}', null)">
-                    <img src="${img}">
-                    <div class="ov"></div>
-                    <span>${m}</span>
+            const ms = [...new Set(db.map(i => i.macro).filter(Boolean))];
+            let h = `<div class="list">`;
+            ms.forEach(m => {
+                let img = cfg['macroimg' + cl(m)] || db.find(i => i.macro === m)?.fotourl || '';
+                h += `<div class="card-img" onclick="nav('${m}', null)"><img src="${img}"><div class="ov"></div><span>${m}</span></div>`;
+            });
+            out.innerHTML = h + '</div>';
+        } else if (!st.c) {
+            const cats = [...new Set(db.filter(i => i.macro === st.m).map(i => i.categoria))];
+            let h = `<div class="back-nav" onclick="nav(null,null)">← MENU</div><div class="grid">`;
+            cats.forEach(c => {
+                let img = db.find(i => i.categoria === c)?.fotourl || '';
+                h += `<div class="card-img" style="height:120px" onclick="nav('${st.m}', '${c}')"><img src="${img}"><div class="ov"></div><span>${c}</span></div>`;
+            });
+            out.innerHTML = h + '</div>';
+        } else {
+            const items = db.filter(i => i.macro === st.m && i.categoria === st.c);
+            let h = `<div class="back-nav" onclick="nav('${st.m}',null)">← ${st.c}</div>`;
+            items.forEach(i => {
+                h += `<div class="dish-card">
+                    ${i.fotourl ? `<img src="${i.fotourl}" class="dish-img">` : ''}
+                    <div><div class="dish-name">${i.nomeit}</div><div style="font-size:0.8rem;color:#666">${i.descit || ''}</div><div class="dish-price">${i.prezzo}€</div></div>
                 </div>`;
             });
-            out.innerHTML = html + '</div>';
-        } 
-        else if (st.m && !st.c) {
-            // LIVELLO 2: CATEGORIE (Filtrate per Macro)
-            const itemsInMacro = db.filter(i => i.macro === st.m);
-            const cats = [...new Set(itemsInMacro.map(i => i.categoria).filter(Boolean))];
-            
-            let html = `<div class="back-nav" onclick="nav(null, null)">← TORNA ALLE SEZIONI</div>`;
-            html += `<div class="${cl(cfg.catlayout) === 'grid' ? 'grid' : 'list'} ani">`;
-            
-            const showImg = cl(cfg.catimgshow) !== 'no';
-
-            cats.forEach(c => {
-                // Cerca un'immagine specifica per la categoria se esiste, altrimenti prendi una dal piatto
-                let img = itemsInMacro.find(i => i.categoria === c && i.catimg
+            out.innerHTML = h;
+        }
+    }
+    window.nav = (m, c) => { st.m = m; st.c = c; render(); };
+    init();
+</script>
+</body>
+</html>
