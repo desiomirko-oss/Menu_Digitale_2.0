@@ -3,96 +3,178 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Professional Dynamic PWA</title>
+    <title>Professional Menu PWA</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="manifest" href="manifest.json">
+    <link id="google-font" rel="stylesheet">
     <style>
-        .loader { border-top-color: #3498db; animation: spinner 1.5s linear infinite; }
-        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        body { transition: background 0.3s ease; }
+        .macro-card { height: var(--macro-height, 200px); background-size: cover; background-position: center; }
+        .loader-spin { border-top-color: var(--loader-color, #000); animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .hidden { display: none; }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900 font-sans">
+<body class="min-h-screen">
 
-    <header class="bg-white shadow-sm sticky top-0 z-10">
-        <div class="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 id="app-title" class="text-xl font-bold text-blue-600">Caricamento...</h1>
-            <div id="status-indicator" class="h-3 w-3 rounded-full bg-yellow-400"></div>
-        </div>
+    <div id="loader" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white">
+        <div class="loader-spin rounded-full border-4 h-16 w-16 mb-4"></div>
+        <p id="loader-text">Sincronizzazione Menu...</p>
+    </div>
+
+    <header class="p-6 text-center">
+        <div id="logo-container" class="flex justify-center mb-2"></div>
+        <h2 id="app-subtitle" class="uppercase tracking-widest"></h2>
     </header>
 
-    <main class="max-w-4xl mx-auto p-4">
-        <div id="loader" class="flex flex-col items-center justify-center py-20">
-            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
-            <p class="text-gray-500">Sincronizzazione dati in corso...</p>
-        </div>
+    <nav id="nav-bar" class="px-4 py-2 hidden">
+        <button onclick="renderMacro()" class="text-sm font-bold text-gray-500 uppercase">← Torna Indietro</button>
+    </nav>
 
-        <div id="content-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4 hidden">
-            </div>
-    </main>
+    <main id="app-content" class="max-w-2xl mx-auto p-4 space-y-4">
+        </main>
 
     <script>
-        // Configurazione: Recupera l'ID del foglio dall'URL (?id=IL_TUO_ID)
         const urlParams = new URLSearchParams(window.location.search);
         const sheetId = urlParams.get('id');
-        const defaultSheetId = "IL_TUO_ID_DI_DEFAULT_QUI"; // Opzionale
         
-        const finalId = sheetId || defaultSheetId;
+        let config = {};
+        let menuData = [];
+        let currentMacro = null;
 
-        async function fetchSheetData() {
-            if (!finalId) {
-                document.getElementById('app-title').innerText = "Errore Configurazione";
-                document.getElementById('loader').innerHTML = "<p class='text-red-500'>ID Foglio mancante nell'URL.</p>";
+        async function init() {
+            if (!sheetId) {
+                alert("ID Foglio mancante nell'URL!");
                 return;
             }
+            await loadData();
+            applyConfig();
+            renderMacro();
+            
+            // Nascondi loader con il delay del tuo sheet
+            setTimeout(() => {
+                document.getElementById('loader').style.display = 'none';
+            }, parseInt(config.Loader_Time) || 1000);
+        }
 
-            // Utilizziamo l'export CSV di Google per bypassare chiavi API complesse (se il foglio è 'Pubblicato sul Web')
-            const url = `https://docs.google.com/spreadsheets/d/${finalId}/gviz/tq?tqx=out:csv`;
+        async function loadData() {
+            // Carichiamo entrambi i fogli (Config e Menu)
+            // Nota: assumiamo che Config sia il primo foglio (gid=0) e Menu il secondo, 
+            // ma l'approccio migliore per GitHub è usare il nome del foglio se pubblicato correttamente
+            const configUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=Config`;
+            const menuUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=Menu`;
 
             try {
-                const response = await fetch(url);
-                const data = await response.text();
-                processData(data);
-            } catch (error) {
-                console.error("Errore nel recupero dati:", error);
-                document.getElementById('status-indicator').classList.replace('bg-yellow-400', 'bg-red-500');
+                const [confRes, menuRes] = await Promise.all([fetch(configUrl), fetch(menuUrl)]);
+                const confCsv = await confRes.text();
+                const menuCsv = await menuRes.text();
+
+                // Parsing Config
+                confCsv.split('\n').slice(1).forEach(row => {
+                    const [param, valore] = row.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
+                    if (param) config[param.trim()] = valore ? valore.replace(/"/g, '').trim() : '';
+                });
+
+                // Parsing Menu
+                const rows = menuCsv.split('\n').map(r => r.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c => c.replace(/"/g, '')));
+                const headers = rows[0];
+                menuData = rows.slice(1).map(row => {
+                    let obj = {};
+                    headers.forEach((h, i) => obj[h.trim()] = row[i]);
+                    return obj;
+                });
+            } catch (e) { console.error("Errore download:", e); }
+        }
+
+        function applyConfig() {
+            const root = document.documentElement;
+            // Font
+            if (config.Font_Main) {
+                document.getElementById('google-font').href = `https://fonts.googleapis.com/css2?family=${config.Font_Main.replace(/ /g, '+')}:wght@400;700&display=swap`;
+                document.body.style.family = config.Font_Main;
             }
+            
+            // Sfondo
+            if (config.App_Bg_Type === 'color') document.body.style.backgroundColor = config.App_Bg_Color;
+            else {
+                document.body.style.backgroundImage = `url(${config.App_Bg_Image})`;
+                document.body.style.backgroundSize = config.App_Bg_Size;
+                document.body.style.backgroundPosition = config.App_Bg_Pos;
+            }
+
+            // Logo
+            const logoCont = document.getElementById('logo-container');
+            if (config.Logo_Type === 'IMAGE') {
+                logoCont.innerHTML = `<img src="${config.Logo_URL}" style="width: ${config.Logo_Img_Size}">`;
+            } else {
+                logoCont.innerHTML = `<h1 style="color: ${config.Logo_Text_Color}; font-size: ${config.Logo_Text_Size}">${config.Logo_Text}</h1>`;
+            }
+
+            document.getElementById('app-subtitle').innerText = config.App_Subtitle;
+            document.getElementById('app-subtitle').style.color = config.Subtitle_Color;
+            
+            // Variabili CSS per loader e macro
+            root.style.setProperty('--loader-color', config.Loader_Time_Color);
+            root.style.setProperty('--macro-height', config.Macro_Height);
         }
 
-        function processData(csvText) {
-            // Semplice parser CSV (gestisce righe e virgole)
-            const rows = csvText.split('\n').map(row => 
-                row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(cell => cell.replace(/"/g, ''))
-            );
+        // LIVELLO 1: MACRO
+        function renderMacro() {
+            document.getElementById('nav-bar').classList.add('hidden');
+            const container = document.getElementById('app-content');
+            container.innerHTML = `<div class="grid grid-cols-1 gap-4">
+                <div onclick="renderCategories('CIBO')" class="macro-card flex items-center justify-center rounded-2xl shadow-lg cursor-pointer" style="background-image: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url(${config.Macro_Img_Cibo})">
+                    <span style="color: ${config.Macro_Text_Color}; font-size: ${config.Macro_Text_Size}" class="font-bold uppercase">Cibo</span>
+                </div>
+                <div onclick="renderCategories('BEVANDE')" class="macro-card flex items-center justify-center rounded-2xl shadow-lg cursor-pointer" style="background-image: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url(${config.Macro_Img_Bevande})">
+                    <span style="color: ${config.Macro_Text_Color}; font-size: ${config.Macro_Text_Size}" class="font-bold uppercase">Bevande</span>
+                </div>
+            </div>`;
+        }
 
-            const headers = rows[0];
-            const items = rows.slice(1);
+        // LIVELLO 2: CATEGORIE
+        function renderCategories(macro) {
+            currentMacro = macro;
+            document.getElementById('nav-bar').classList.remove('hidden');
+            const container = document.getElementById('app-content');
             
-            // Imposta Titolo App (assumendo che la prima riga/colonna sia il nome)
-            document.getElementById('app-title').innerText = "Dashboard Attiva";
+            const categories = [...new Set(menuData.filter(item => item.Macro === macro).map(item => item.Categoria))];
             
-            const grid = document.getElementById('content-grid');
-            grid.innerHTML = ''; // Pulisce
-
-            items.forEach(item => {
-                if(item[0]) { // Evita righe vuote
-                    const card = `
-                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                            <h3 class="text-lg font-bold mb-2">${item[0]}</h3>
-                            <p class="text-gray-600">${item[1] || ''}</p>
-                            <span class="mt-4 inline-block text-sm font-medium text-blue-500">${item[2] || ''}</span>
-                        </div>
-                    `;
-                    grid.innerHTML += card;
-                }
+            container.innerHTML = `<div class="grid gap-3">`;
+            categories.forEach(cat => {
+                container.innerHTML += `
+                    <button onclick="renderItems('${cat}')" class="w-full p-6 bg-white rounded-xl shadow-sm border text-left flex justify-between items-center group active:scale-95 transition-transform">
+                        <span class="text-xl font-bold" style="color: ${config.Text_CatTitle_Color}">${cat}</span>
+                        <span class="text-gray-400 group-hover:translate-x-2 transition-transform">→</span>
+                    </button>`;
             });
-
-            // UI Update
-            document.getElementById('loader').classList.add('hidden');
-            grid.classList.remove('hidden');
-            document.getElementById('status-indicator').classList.replace('bg-yellow-400', 'bg-green-500');
+            container.innerHTML += `</div>`;
         }
 
-        window.onload = fetchSheetData;
+        // LIVELLO 3: PRODOTTI
+        function renderItems(category) {
+            const container = document.getElementById('app-content');
+            const items = menuData.filter(item => item.Categoria === category && item.Attivo === 'SI');
+            
+            container.innerHTML = `<div class="space-y-4">
+                <button onclick="renderCategories('${currentMacro}')" class="text-blue-500 font-bold mb-2">← Torna alle categorie</button>
+            `;
+            
+            items.forEach(item => {
+                const isGlutenFree = item['Senza Glutine'] === 'SI' ? '🌾🚫' : '';
+                container.innerHTML += `
+                    <div class="bg-white p-4 rounded-xl shadow-sm border">
+                        <div class="flex justify-between items-start">
+                            <h3 class="font-bold text-lg">${item.Nome_IT} ${isGlutenFree}</h3>
+                            <span class="font-bold text-blue-600">${item.Prezzo}€</span>
+                        </div>
+                        <p class="text-gray-500 text-sm mt-1">${item.Desc_IT}</p>
+                        ${item.Allerg_IT ? `<p class="text-xs text-red-400 mt-2 italic">Allergeni: ${item.Allerg_IT}</p>` : ''}
+                    </div>`;
+            });
+            container.innerHTML += `</div>`;
+        }
+
+        window.onload = init;
     </script>
 </body>
 </html>
