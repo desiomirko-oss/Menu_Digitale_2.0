@@ -32,7 +32,7 @@
             --flt-f: sans-serif; --flt-s: 11px; --flt-w: bold;
             --flt-bg-i: #f3f4f6; --flt-c-i: #9ca3af;
             --flt-bg-a: #4f46e5; --flt-c-a: #ffffff;
-            --flt-mt: 10px; --flt-mb: 20px;
+            --flt-mt: 0px; --flt-mb: 0px;
         }
 
         body {
@@ -62,6 +62,7 @@
         .macro-card { height: var(--macro-h); border-radius: 1.25rem; background-size: cover; background-position: center; position: relative; overflow: hidden; box-shadow: var(--card-shadow); transition: all 0.2s ease; }
         .macro-card:active { transform: scale(0.96); }
         .macro-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,0.4)); }
+        .cat-overlay { position: absolute; inset: 0; background: linear-gradient(to right, rgba(0,0,0,0.7), rgba(0,0,0,0.2)); border-radius: inherit; }
         .macro-text-inside, .macro-text-outside { text-shadow: var(--macro-txt-sh); }
 
         .menu-card {
@@ -70,7 +71,8 @@
             border: var(--menu-card-border); transition: transform 0.1s ease;
         }
         .menu-card:active { transform: scale(0.98); }
-        .cat-card { min-height: var(--cat-card-min-h); }
+        
+        .cat-card { min-height: var(--cat-card-min-h); position: relative; background-size: cover; background-position: center; }
         .item-card { min-height: var(--item-card-min-h); }
 
         .item-name { font-family: var(--i-name-f); color: var(--i-name-c); font-size: var(--i-name-s); font-weight: var(--i-name-w); margin-bottom: var(--i-name-mb); text-shadow: var(--i-name-sh); line-height: 1.2; }
@@ -88,7 +90,7 @@
             box-shadow: var(--i-photo-sh); 
         }
         
-        .filter-container { margin-top: var(--flt-mt); margin-bottom: var(--flt-mb); display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+        .filter-container { margin-top: var(--flt-mt); margin-bottom: var(--flt-mb); display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; }
         .filter-btn {
             font-family: var(--flt-f); font-size: var(--flt-s); font-weight: var(--flt-w);
             background-color: var(--flt-bg-i); color: var(--flt-c-i);
@@ -156,7 +158,6 @@
             }
         }
 
-        // IL NUOVO PARSER INDISTRUTTIBILE
         function safeParseCSVRow(str) {
             let arr = []; let quote = false; let cell = '';
             for (let i = 0; i < str.length; i++) {
@@ -325,7 +326,6 @@
                 for(let i=1; i<rows.length; i++) {
                     if(rows[i].trim() === '') continue;
                     const c = safeParseCSVRow(rows[i]);
-                    // Se la riga è rotta o manca la Macro, salta
                     if(c.length < 3 || !c[0]) continue;
                     
                     fullData.push({
@@ -384,11 +384,30 @@
             const cats = [...new Set(fullData.filter(i => i.macro === mName).map(i => i.cat))];
             
             container.innerHTML = ''; 
+            const showCatPhoto = (appConfig.Category_Photo_Show || 'FALSE').toUpperCase().trim() === 'TRUE';
+
             cats.forEach(c => {
+                let bgStyle = '';
+                let overlayHTML = '';
+                let textClass = 'font-bold text-gray-800 text-lg relative z-10';
+                let iconClass = 'text-gray-400 shrink-0 ml-2 relative z-10';
+
+                // Se l'opzione foto è attiva, cerca l'URL
+                if(showCatPhoto) {
+                    const imgUrl = appConfig[`Category_Img_${c}`];
+                    if(imgUrl && imgUrl !== 'undefined') {
+                        bgStyle = `background-image: url('${imgUrl.trim()}'); border: none;`;
+                        overlayHTML = `<div class="cat-overlay"></div>`;
+                        textClass = 'font-extrabold text-white text-lg relative z-10 text-shadow';
+                        iconClass = 'text-white shrink-0 ml-2 relative z-10';
+                    }
+                }
+
                 container.innerHTML += `
-                    <div onclick="renderLevel3('${mName.replace(/'/g, "\\'")}', '${c.replace(/'/g, "\\'")}')" class="menu-card cat-card flex justify-between items-center cursor-pointer mb-3">
-                        <span class="font-bold text-gray-800 text-lg">${c}</span>
-                        <svg class="w-5 h-5 text-gray-400 shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    <div onclick="renderLevel3('${mName.replace(/'/g, "\\'")}', '${c.replace(/'/g, "\\'")}')" class="menu-card cat-card flex justify-between items-center cursor-pointer mb-3" style="${bgStyle}">
+                        ${overlayHTML}
+                        <span class="${textClass}">${c}</span>
+                        <svg class="w-5 h-5 ${iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                     </div>`;
             });
             navigationStack.push('page-categories');
@@ -416,22 +435,37 @@
             
             if (!isFiltering) {
                 container.innerHTML = '';
+                
+                // IL NUOVO BOX INTESTAZIONE + FILTRI
                 const levelMb = appConfig.Level_Title_Margin_Bottom || '25px';
-                container.innerHTML += `<div class="text-center mt-2" style="margin-bottom: ${levelMb};"><span class="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] bg-gray-200/50 px-3 py-1 rounded-full">${cName}</span></div>`;
+                let headerBox = `
+                    <div class="menu-card flex flex-col items-center justify-center mb-4" style="background: var(--header-bg); backdrop-filter: blur(12px); border: none; margin-bottom: ${levelMb}; box-shadow: 0 4px 15px rgba(0,0,0,0.06);">
+                        <span class="text-[13px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">${cName}</span>`;
 
                 if ((appConfig.Filter_Show || '').toUpperCase().trim() !== 'FALSE') {
                     const isDrinks = mName.toLowerCase().match(/bevand|bebid|drink/);
                     let filterHtml = '<div class="filter-container">';
                     if (!isDrinks) {
-                        filterHtml += `<button onclick="toggleFilter('gf')" class="filter-btn">Senza Glutine</button>`;
-                        filterHtml += `<button onclick="toggleFilter('vegan')" class="filter-btn">Vegano</button>`;
-                        filterHtml += `<button onclick="toggleFilter('veg')" class="filter-btn">Vegetariano</button>`;
+                        if((appConfig.Filter_Show_GF || 'TRUE').toUpperCase().trim() !== 'FALSE') {
+                            filterHtml += `<button onclick="toggleFilter('gf')" class="filter-btn">Senza Glutine</button>`;
+                        }
+                        if((appConfig.Filter_Show_Vegan || 'TRUE').toUpperCase().trim() !== 'FALSE') {
+                            filterHtml += `<button onclick="toggleFilter('vegan')" class="filter-btn">Vegano</button>`;
+                        }
+                        if((appConfig.Filter_Show_Veg || 'TRUE').toUpperCase().trim() !== 'FALSE') {
+                            filterHtml += `<button onclick="toggleFilter('veg')" class="filter-btn">Vegetariano</button>`;
+                        }
                     } else {
-                        filterHtml += `<button onclick="toggleFilter('noalc')" class="filter-btn">Analcolico</button>`;
+                        if((appConfig.Filter_Show_NoAlc || 'TRUE').toUpperCase().trim() !== 'FALSE') {
+                            filterHtml += `<button onclick="toggleFilter('noalc')" class="filter-btn">Analcolico</button>`;
+                        }
                     }
                     filterHtml += '</div>';
-                    container.innerHTML += filterHtml;
+                    headerBox += filterHtml;
                 }
+                headerBox += `</div>`;
+                container.innerHTML += headerBox;
+                
                 container.innerHTML += '<div id="items-list" class="space-y-4"></div>';
             }
 
