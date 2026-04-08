@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Digital Menu Master V9.1</title>
+    <title>Menu Digitale</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
@@ -26,7 +26,7 @@
             overscroll-behavior-y: none; 
         }
 
-        /* HEADER BLINDATO (Fisso per tutte le pagine) */
+        /* HEADER BLINDATO */
         #main-header {
             background: var(--header-bg);
             position: fixed;
@@ -99,7 +99,7 @@
 <body>
 
     <header id="main-header">
-        <div id="logo-container" class="w-full flex"></div>
+        <div id="logo-container" class="w-full flex items-center"></div>
         <div id="subtitle-container"></div>
         <div id="level-title-inside" style="display: none; letter-spacing: 0.1em; text-transform: uppercase;"></div>
     </header>
@@ -150,10 +150,14 @@
                 const csv = await response.text();
                 csv.split('\n').slice(1).forEach(row => {
                     if(row.trim() === '') return;
+                    
+                    // Regex avanzata per rispettare il testo tra virgolette nel CSV
                     const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
                     if(cols.length >= 2) {
-                        const key = cols[0].replace(/"/g, '').trim();
-                        const val = cols[1].replace(/"/g, '').replace(/;/g, ',').trim();
+                        // Rimuove solo le virgolette iniziali e finali, rispettando il contenuto
+                        const key = cols[0].replace(/^"|"$/g, '').trim();
+                        // Ricostruisce il valore nel caso contenga virgole vere
+                        const val = cols.slice(1).join(',').replace(/^"|"$/g, '').replace(/;/g, ',').trim();
                         appConfig[key] = val;
                     }
                 });
@@ -172,33 +176,51 @@
             root.style.setProperty('--back-color', appConfig.Back_Btn_Color || '#000');
 
             const backBtn = document.getElementById('back-button');
-            const pos = (appConfig.Back_Btn_Position || 'center').toLowerCase();
+            const pos = (appConfig.Back_Btn_Position || 'center').toLowerCase().trim();
             const hHeight = parseInt(appConfig.Header_Height || '120');
             if (pos === 'center') backBtn.style.top = `calc(${hHeight}px / 2 - 22px)`;
             else if (pos === 'bottom') backBtn.style.top = `calc(${hHeight}px - 55px)`;
             else if (pos === 'outside') backBtn.style.top = `calc(${hHeight}px + 15px)`;
 
+            // --- MOTORE LOGO BLINDATO ---
             const logoCont = document.getElementById('logo-container');
             logoCont.innerHTML = ''; 
-            logoCont.className = `w-full flex justify-${appConfig.Logo_Align || 'center'}`;
+            logoCont.className = `w-full flex justify-${(appConfig.Logo_Align || 'center').toLowerCase().trim()}`;
             
-            if(appConfig.Logo_Type === 'image' && appConfig.Logo_Image_URL && appConfig.Logo_Image_URL !== 'undefined') {
+            const isImage = (appConfig.Logo_Type || '').toLowerCase().trim() === 'image';
+            const hasImageUrl = appConfig.Logo_Image_URL && appConfig.Logo_Image_URL.trim() !== '' && appConfig.Logo_Image_URL !== 'undefined';
+
+            if (isImage && hasImageUrl) {
                 logoCont.innerHTML = `<img src="${appConfig.Logo_Image_URL}" style="height:${appConfig.Logo_Image_Size || '60px'}; object-fit:contain;">`;
+                document.title = "Menu Digitale"; // Fallback titolo browser
             } else {
-                const validLogoText = (appConfig.Logo_Text && appConfig.Logo_Text !== 'undefined') ? appConfig.Logo_Text : 'Menu';
-                logoCont.innerHTML = `<h1 style="color:${appConfig.Logo_Text_Color || '#000'}; font-size:${appConfig.Logo_Text_Size || '24px'}; font-weight:${appConfig.Logo_Text_Bold === 'FALSE' ? 'normal' : 'bold'}; margin:0; line-height:1; font-family:${appConfig.Logo_Text_Font || 'sans-serif'};">${validLogoText}</h1>`;
+                // Lettura sicura del testo
+                let customText = appConfig.Logo_Text;
+                if (!customText || customText.toLowerCase() === 'undefined' || customText.trim() === '') {
+                    customText = 'Menu Digitale'; 
+                }
+                
+                const isBold = (appConfig.Logo_Text_Bold || '').toUpperCase().trim() === 'FALSE' ? 'normal' : 'bold';
+                
+                logoCont.innerHTML = `<h1 style="color:${appConfig.Logo_Text_Color || '#000'}; font-size:${appConfig.Logo_Text_Size || '24px'}; font-weight:${isBold}; margin:0; line-height:1; font-family:${appConfig.Logo_Text_Font || 'sans-serif'};">${customText}</h1>`;
+                
+                // Aggiorna anche il tab del browser
+                document.title = customText;
             }
             
+            // Sottotitolo (Con Toggle Sicuro)
             const sub = document.getElementById('subtitle-container');
-            if(appConfig.Subtitle_Show === 'FALSE') {
+            if((appConfig.Subtitle_Show || '').toUpperCase().trim() === 'FALSE') {
                 sub.style.display = 'none';
             } else {
                 sub.style.display = 'block';
-                sub.innerText = (appConfig.Subtitle_Text && appConfig.Subtitle_Text !== 'undefined') ? appConfig.Subtitle_Text : '';
+                const subText = (appConfig.Subtitle_Text && appConfig.Subtitle_Text !== 'undefined') ? appConfig.Subtitle_Text : '';
+                sub.innerText = subText;
                 sub.style.cssText = `color:${appConfig.Subtitle_Color || '#666'}; font-size:${appConfig.Subtitle_Size || '14px'}; margin-top:${appConfig.Subtitle_Margin_Top || '5px'}; text-align:${appConfig.Subtitle_Align || 'center'}; font-family:${appConfig.Subtitle_Font || 'sans-serif'};`;
             }
 
-            const levelStyle = `color:${appConfig.Level_Title_Color || '#4f46e5'}; font-size:${appConfig.Level_Title_Size || '16px'}; font-weight:${appConfig.Level_Title_Bold === 'FALSE' ? 'normal' : 'bold'}; text-align:${appConfig.Level_Title_Align || 'center'}; font-family:${appConfig.Level_Title_Font || 'sans-serif'}; margin-top: 8px; display: none;`;
+            // Sotto-Sottotitolo
+            const levelStyle = `color:${appConfig.Level_Title_Color || '#4f46e5'}; font-size:${appConfig.Level_Title_Size || '16px'}; font-weight:${(appConfig.Level_Title_Bold || '').toUpperCase() === 'FALSE' ? 'normal' : 'bold'}; text-align:${appConfig.Level_Title_Align || 'center'}; font-family:${appConfig.Level_Title_Font || 'sans-serif'}; margin-top: 8px; display: none;`;
             document.getElementById('level-title-inside').style.cssText = levelStyle;
             document.getElementById('level-title-outside').style.cssText = levelStyle + ' margin-top: 0px; margin-bottom: 20px;'; 
         }
@@ -225,7 +247,7 @@
                         price: c[5], gf: c[6], vegan: c[7], veg: c[8], noalc: c[9], 
                         active: c[10], photoUrl: c[11], model3d: c[12] 
                     };
-                }).filter(i => i.macro && i.active.toUpperCase() !== 'FALSE'); 
+                }).filter(i => i.macro && (i.active || '').toUpperCase() !== 'FALSE'); 
                 
                 document.getElementById('loading-screen').style.display = 'none';
                 renderLevel1();
@@ -238,7 +260,7 @@
             const layoutContainer = document.getElementById('macro-layout-container');
             const macros = [...new Set(fullData.map(i => i.macro))];
             
-            const isGrid = (appConfig.Macro_Layout || 'grid').toLowerCase() === 'grid';
+            const isGrid = (appConfig.Macro_Layout || 'grid').toLowerCase().trim() === 'grid';
             layoutContainer.className = `page-content ${isGrid ? 'grid grid-cols-2 gap-4' : 'flex flex-col space-y-6'}`;
             layoutContainer.innerHTML = '';
 
@@ -246,7 +268,7 @@
                 const imgKey = `Macro_Img_${m}`;
                 const imgUrl = appConfig[imgKey];
                 const bg = (imgUrl && imgUrl !== 'undefined') ? `url('${imgUrl}')` : 'linear-gradient(135deg, #cbd5e1, #f1f5f9)'; 
-                const tPos = (appConfig.Macro_Text_Pos || 'center').toLowerCase(); 
+                const tPos = (appConfig.Macro_Text_Pos || 'center').toLowerCase().trim(); 
 
                 let html = '';
                 if(tPos === 'outside') {
@@ -336,14 +358,13 @@
 
             if(p === 'page-macro') {
                 backBtn.classList.remove('active');
-                // Sblocco dello scroll per la pagina Macro (Home)
                 document.body.style.overflow = 'auto'; 
             } else {
                 backBtn.classList.add('active');
                 document.body.style.overflow = 'auto';
                 
-                if(appConfig.Level_Title_Show !== 'FALSE') {
-                    if((appConfig.Level_Title_Position || 'inside').toLowerCase() === 'outside') {
+                if((appConfig.Level_Title_Show || '').toUpperCase().trim() !== 'FALSE') {
+                    if((appConfig.Level_Title_Position || 'inside').toLowerCase().trim() === 'outside') {
                         titleOutside.style.display = 'block';
                         titleOutside.innerText = levelTitle;
                     } else {
@@ -354,7 +375,6 @@
             }
 
             autoAdjustPadding();
-            // Forza lo scroll in cima istantaneamente al cambio pagina
             window.scrollTo({top: 0, behavior: 'instant'});
         }
 
