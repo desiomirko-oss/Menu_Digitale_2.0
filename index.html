@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Digital Menu Master V4</title>
+    <title>Digital Menu Master V5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Variabili Root popolate dal Config */
@@ -21,6 +21,7 @@
             --sub-size: 14px;
             --sub-weight: normal;
             --sub-align: center;
+            --sub-mt: 10px; /* Nuova variabile spazio */
 
             --logo-font: sans-serif;
             --logo-color: #000;
@@ -35,7 +36,7 @@
             background-image: var(--app-bg-image);
             background-size: var(--app-bg-size);
             background-position: var(--app-bg-pos);
-            background-attachment: fixed; /* Lo sfondo resta fermo allo scroll */
+            background-attachment: fixed; 
             min-height: 100vh;
             margin: 0;
             font-family: sans-serif;
@@ -62,6 +63,7 @@
             font-size: var(--sub-size);
             font-weight: var(--sub-weight);
             text-align: var(--sub-align);
+            margin-top: var(--sub-mt); /* Il margine ora è controllato da Sheet */
         }
 
         .dynamic-logo-text {
@@ -70,6 +72,7 @@
             font-size: var(--logo-size);
             font-weight: var(--logo-weight);
             text-align: var(--logo-align);
+            line-height: 1; /* Rimuove spaziature extra di default del testo */
         }
 
         .dynamic-logo-img {
@@ -93,7 +96,7 @@
         </button>
         <div id="header-content" class="flex flex-col w-full">
             <div id="logo-container" class="w-full flex"></div>
-            <div id="subtitle-container" class="dynamic-subtitle mt-1"></div>
+            <div id="subtitle-container" class="dynamic-subtitle"></div>
         </div>
     </header>
 
@@ -111,7 +114,6 @@
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const SHEET_ID = urlParams.get('id'); 
-        const userLang = (navigator.language || navigator.userLanguage).split('-')[0];
         
         let fullData = [];
         let appConfig = {};
@@ -132,7 +134,7 @@
             const response = await fetch(url);
             const csv = await response.text();
             csv.split('\n').slice(1).forEach(row => {
-                const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); // Regex per gestire virgole nelle virgolette
+                const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); 
                 if(cols.length >= 2) {
                     const key = cols[0].replace(/"/g, '').trim();
                     const val = cols[1].replace(/"/g, '').replace(/;/g, ',').trim();
@@ -143,10 +145,107 @@
 
         function applyConfig() {
             const root = document.documentElement;
+            
             // Sfondo
             if(appConfig.Bg_Type === 'image') {
                 root.style.setProperty('--app-bg-image', `url('${appConfig.Bg_Image_URL}')`);
                 root.style.setProperty('--app-bg-size', appConfig.Bg_Image_Size || 'cover');
                 root.style.setProperty('--app-bg-pos', appConfig.Bg_Image_Pos || 'center');
             } else {
-                root.style.setProperty('--app
+                root.style.setProperty('--app-bg', appConfig.Bg_Color || '#f3f4f6');
+            }
+
+            // Header
+            root.style.setProperty('--header-bg', appConfig.Header_BgColor || 'rgba(255,255,255,0.8)');
+            root.style.setProperty('--header-height', appConfig.Header_Height || '100px');
+            document.getElementById('main-content').style.paddingTop = `calc(${appConfig.Header_Height} + 20px)`;
+
+            // Logo
+            const logoCont = document.getElementById('logo-container');
+            logoCont.className = `w-full flex justify-${appConfig.Logo_Align || 'center'}`;
+            if(appConfig.Logo_Type === 'image') {
+                root.style.setProperty('--logo-img-size', appConfig.Logo_Image_Size || '50px');
+                logoCont.innerHTML = `<img src="${appConfig.Logo_Image_URL}" class="dynamic-logo-img">`;
+            } else {
+                root.style.setProperty('--logo-font', appConfig.Logo_Text_Font);
+                root.style.setProperty('--logo-color', appConfig.Logo_Text_Color);
+                root.style.setProperty('--logo-size', appConfig.Logo_Text_Size);
+                root.style.setProperty('--logo-weight', appConfig.Logo_Text_Bold === 'TRUE' ? 'bold' : 'normal');
+                logoCont.innerHTML = `<h1 class="dynamic-logo-text">${appConfig.Logo_Text}</h1>`;
+            }
+
+            // Sottotitolo e Spaziatura
+            document.getElementById('subtitle-container').innerText = appConfig.Subtitle_Text;
+            root.style.setProperty('--sub-font', appConfig.Subtitle_Font);
+            root.style.setProperty('--sub-color', appConfig.Subtitle_Color);
+            root.style.setProperty('--sub-size', appConfig.Subtitle_Size);
+            root.style.setProperty('--sub-weight', appConfig.Subtitle_Bold === 'TRUE' ? 'bold' : 'normal');
+            root.style.setProperty('--sub-align', appConfig.Subtitle_Align);
+            root.style.setProperty('--sub-mt', appConfig.Subtitle_Margin_Top || '0px'); /* Applica lo spazio */
+        }
+
+        // --- Logica Menu ---
+        async function fetchMenu() {
+            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=menu`;
+            try {
+                const response = await fetch(url);
+                const csvData = await response.text();
+                const rows = csvData.split('\n').slice(1);
+                fullData = rows.map(r => {
+                    const c = r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.replace(/"/g, '').trim());
+                    return { macro: c[0], cat: c[1], name: c[2], desc: c[3], price: c[4] };
+                }).filter(i => i.macro);
+                
+                document.getElementById('loading-screen').classList.add('hidden');
+                renderMacro();
+            } catch(e) {
+                // Gestione errore silenziosa se il menu non è ancora pronto
+                document.getElementById('loading-text').innerText = "Menu in allestimento...";
+            }
+        }
+
+        function renderMacro() {
+            const container = document.getElementById('page-macro');
+            const macros = [...new Set(fullData.map(i => i.macro))];
+            container.innerHTML = `<h2 class="text-xl font-bold mb-4 px-2 text-gray-800">Menu</h2>`;
+            macros.forEach(m => {
+                container.innerHTML += `<div onclick="renderCategories('${m}')" class="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-sm border border-white/50 flex justify-between items-center cursor-pointer active:scale-95 transition-all"><span class="text-lg font-bold">${m}</span><span>→</span></div>`;
+            });
+            showPage('page-macro');
+        }
+
+        function renderCategories(mName) {
+            const container = document.getElementById('page-categories');
+            const cats = [...new Set(fullData.filter(i => i.macro === mName).map(i => i.cat))];
+            container.innerHTML = `<h2 class="text-xl font-bold mb-4 px-2 text-gray-800">${mName}</h2>`;
+            cats.forEach(c => {
+                container.innerHTML += `<div onclick="renderItems('${c}')" class="bg-white/90 p-5 rounded-xl shadow-sm flex justify-between items-center cursor-pointer"><span>${c}</span><span class="text-indigo-600">Apri</span></div>`;
+            });
+            navigationStack.push('page-categories');
+            showPage('page-categories');
+        }
+
+        function renderItems(cName) {
+            const container = document.getElementById('page-items');
+            const items = fullData.filter(i => i.cat === cName);
+            container.innerHTML = `<h2 class="text-xl font-bold mb-4 px-2 text-gray-800">${cName}</h2>`;
+            items.forEach(i => {
+                container.innerHTML += `<div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-2"><div class="flex justify-between items-start gap-4"><h3 class="font-bold text-gray-900">${i.name}</h3><span class="font-bold text-indigo-600">${i.price}</span></div><p class="text-sm text-gray-500">${i.desc}</p></div>`;
+            });
+            navigationStack.push('page-items');
+            showPage('page-items');
+        }
+
+        function showPage(p) {
+            document.querySelectorAll('.page-transition').forEach(el => el.classList.remove('active-page'));
+            document.getElementById(p).classList.add('active-page');
+            document.getElementById('back-button').classList.toggle('hidden', p === 'page-macro');
+            window.scrollTo(0,0);
+        }
+
+        function goBack() { navigationStack.pop(); showPage(navigationStack[navigationStack.length-1]); }
+
+        init();
+    </script>
+</body>
+</html>
