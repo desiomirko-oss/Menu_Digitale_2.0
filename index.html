@@ -3,21 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Digital Menu Master V6</title>
+    <title>Digital Menu Master V6.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
-            /* Defaults prevent crash */
-            --header-h: 100px;
-            --back-size: 40px;
-            --back-bg: rgba(255,255,255,0.5);
-            --back-color: #000;
-            --back-top: 20px;
-            --back-left: 15px;
+            --app-bg: #f3f4f6;
+            --header-h: 120px;
+            --back-bg: rgba(255, 255, 255, 0.9);
+            --back-color: #4f46e5;
         }
 
         body {
-            background-color: var(--app-bg, #f3f4f6);
+            background-color: var(--app-bg);
             background-image: var(--app-bg-img, none);
             background-size: cover;
             background-position: center;
@@ -26,7 +23,7 @@
         }
 
         .glass-header {
-            background: var(--header-bg, rgba(255,255,255,0.8));
+            background: var(--header-bg, rgba(255,255,255,0.85));
             height: var(--header-h);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
@@ -39,27 +36,27 @@
             justify-content: center;
         }
 
+        /* Il bottone ora è fixed alla finestra, non bloccato nell'header */
         #back-button {
-            position: absolute;
-            top: var(--back-top);
-            left: var(--back-left);
-            width: var(--back-size);
-            height: var(--back-size);
+            position: fixed;
+            left: 15px;
+            width: 42px;
+            height: 42px;
             background: var(--back-bg);
             color: var(--back-color);
-            display: none; /* Hidden on Home */
+            display: none; /* Nascosto in Home */
             align-items: center;
             justify-content: center;
             border-radius: 999px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             z-index: 110;
             transition: all 0.2s ease;
+            cursor: pointer;
         }
 
-        #back-button.active { display: flex; }
-
-        #main-content {
-            /* Calcolo automatico dello spazio per non finire sotto l'header */
-            padding-top: calc(var(--header-h) + 15px);
+        /* La classe active viene aggiunta da JS quando non siamo in home */
+        #back-button.active { 
+            display: flex; 
         }
 
         .dynamic-subtitle {
@@ -72,23 +69,32 @@
 
         .page-transition { display: none; }
         .active-page { display: block; animation: slideUp 0.3s ease-out; }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #4f46e5; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <header id="main-header" class="glass-header px-6">
-        <button id="back-button" onclick="goBack()">
-            <div id="back-icon-container"></div>
-        </button>
+    <header id="main-header" class="glass-header px-6 relative">
         <div id="header-content" class="w-full">
             <div id="logo-container"></div>
             <div id="subtitle-container" class="dynamic-subtitle"></div>
         </div>
     </header>
 
+    <button id="back-button" onclick="goBack()">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+
     <main id="main-content" class="px-4 pb-12 max-w-md mx-auto relative">
-        <section id="page-macro" class="page-transition active-page space-y-4"></section>
+        <div id="loading-screen" class="flex flex-col items-center pt-20 active-page">
+            <div class="loader mb-4"></div>
+            <p id="loading-text" class="text-gray-500 font-medium">Caricamento...</p>
+        </div>
+
+        <section id="page-macro" class="page-transition space-y-4"></section>
         <section id="page-categories" class="page-transition space-y-4"></section>
         <section id="page-items" class="page-transition space-y-6"></section>
     </main>
@@ -97,65 +103,158 @@
         const urlParams = new URLSearchParams(window.location.search);
         const SHEET_ID = urlParams.get('id'); 
         let appConfig = {};
+        let fullData = [];
         let navigationStack = ['page-macro'];
 
         async function init() {
-            if (!SHEET_ID) return;
+            if (!SHEET_ID) {
+                document.getElementById('loading-screen').innerHTML = "<p class='text-red-500'>ID mancante.</p>";
+                return;
+            }
             await fetchConfig();
             applyConfig();
-            // ... (Resto della logica fetchMenu come prima)
+            await fetchMenu();
         }
 
         async function fetchConfig() {
             const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=config`;
-            const response = await fetch(url);
-            const csv = await response.text();
-            csv.split('\n').slice(1).forEach(row => {
-                const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                if(cols.length >= 2) {
-                    appConfig[cols[0].replace(/"/g, '').trim()] = cols[1].replace(/"/g, '').replace(/;/g, ',').trim();
-                }
-            });
+            try {
+                const response = await fetch(url);
+                const csv = await response.text();
+                csv.split('\n').slice(1).forEach(row => {
+                    const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                    if(cols.length >= 2) {
+                        appConfig[cols[0].replace(/"/g, '').trim()] = cols[1].replace(/"/g, '').replace(/;/g, ',').trim();
+                    }
+                });
+            } catch(e) { console.error("Errore Config:", e); }
         }
 
         function applyConfig() {
             const root = document.documentElement;
             
-            // Header & Layout
+            // Header & Sfondo
             root.style.setProperty('--header-h', appConfig.Header_Height || '100px');
             root.style.setProperty('--header-bg', appConfig.Header_BgColor);
-
-            // Back Button
-            root.style.setProperty('--back-size', appConfig.Back_Btn_Size);
-            root.style.setProperty('--back-bg', appConfig.Back_Btn_Bg);
-            root.style.setProperty('--back-color', appConfig.Back_Btn_Color);
-            root.style.setProperty('--back-top', appConfig.Back_Btn_Pos_Top);
-            root.style.setProperty('--back-left', appConfig.Back_Btn_Pos_Left);
-
-            const iconCont = document.getElementById('back-icon-container');
-            const symbol = appConfig.Back_Btn_Symbol?.toLowerCase();
-            if(symbol === 'chevron') {
-                iconCont.innerHTML = '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>';
-            } else if(symbol === 'arrow') {
-                iconCont.innerHTML = '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>';
+            
+            if(appConfig.Bg_Type === 'image') {
+                root.style.setProperty('--app-bg-img', `url('${appConfig.Bg_Image_URL}')`);
             } else {
-                iconCont.innerHTML = '<span><</span>';
+                root.style.setProperty('--app-bg', appConfig.Bg_Color);
             }
 
-            // Logo & Subtitle
+            // --- POSIZIONAMENTO TASTO INDIETRO ---
+            root.style.setProperty('--back-bg', appConfig.Back_Btn_Bg || 'rgba(255,255,255,0.9)');
+            root.style.setProperty('--back-color', appConfig.Back_Btn_Color || '#000');
+            
+            const backBtn = document.getElementById('back-button');
+            const pos = (appConfig.Back_Btn_Position || 'center').toLowerCase();
+            let extraPadding = 20;
+
+            if (pos === 'center') {
+                backBtn.style.top = `calc(${appConfig.Header_Height || '100px'} / 2)`;
+                backBtn.style.transform = 'translateY(-50%)';
+            } else if (pos === 'bottom') {
+                backBtn.style.top = `calc(${appConfig.Header_Height || '100px'} - 50px)`; 
+                backBtn.style.transform = 'none';
+            } else if (pos === 'outside') {
+                backBtn.style.top = `calc(${appConfig.Header_Height || '100px'} + 15px)`;
+                backBtn.style.transform = 'none';
+                extraPadding = 75; // Aumenta lo spazio sotto l'header per non coprire il menu
+            }
+            
+            // Calcolo infallibile per non far finire il menu sotto l'header
+            document.getElementById('main-content').style.paddingTop = `calc(${appConfig.Header_Height || '100px'} + ${extraPadding}px)`;
+
+            // Logo & Sottotitolo
             const logoCont = document.getElementById('logo-container');
             logoCont.className = `w-full flex justify-${appConfig.Logo_Align || 'center'}`;
             if(appConfig.Logo_Type === 'image') {
-                logoCont.innerHTML = `<img src="${appConfig.Logo_Image_URL}" style="height:${appConfig.Logo_Image_Size}">`;
+                logoCont.innerHTML = `<img src="${appConfig.Logo_Image_URL}" style="height:${appConfig.Logo_Image_Size}; object-fit:contain;">`;
             } else {
-                logoCont.innerHTML = `<h1 style="color:${appConfig.Logo_Text_Color}; font-size:${appConfig.Logo_Text_Size}; font-weight:${appConfig.Logo_Text_Bold === 'TRUE' ? 'bold' : 'normal'}">${appConfig.Logo_Text}</h1>`;
+                logoCont.innerHTML = `<h1 style="color:${appConfig.Logo_Text_Color}; font-size:${appConfig.Logo_Text_Size}; font-family:${appConfig.Logo_Text_Font}; font-weight:${appConfig.Logo_Text_Bold === 'TRUE' ? 'bold' : 'normal'}; line-height:1;">${appConfig.Logo_Text}</h1>`;
             }
 
-            document.getElementById('subtitle-container').innerText = appConfig.Subtitle_Text;
-            root.style.setProperty('--sub-mt', appConfig.Subtitle_Margin_Top);
+            document.getElementById('subtitle-container').innerText = appConfig.Subtitle_Text || '';
+            root.style.setProperty('--sub-mt', appConfig.Subtitle_Margin_Top || '10px');
+            root.style.setProperty('--sub-font', appConfig.Subtitle_Font);
+            root.style.setProperty('--sub-color', appConfig.Subtitle_Color);
+            root.style.setProperty('--sub-size', appConfig.Subtitle_Size);
+            root.style.setProperty('--sub-align', appConfig.Subtitle_Align);
         }
 
-        // ... (Logica di navigazione e rendering menu omessa per brevità, resta invariata)
+        // --- Logica Menu (Placeholder funzionante) ---
+        async function fetchMenu() {
+            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=menu`;
+            try {
+                const response = await fetch(url);
+                const csvData = await response.text();
+                const rows = csvData.split('\n').slice(1);
+                fullData = rows.map(r => {
+                    const c = r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.replace(/"/g, '').trim());
+                    return { macro: c[0], cat: c[1], name: c[2], desc: c[3], price: c[4] };
+                }).filter(i => i.macro);
+                
+                document.getElementById('loading-screen').classList.remove('active-page');
+                renderMacro();
+            } catch(e) {
+                document.getElementById('loading-text').innerText = "Nessun menu trovato.";
+            }
+        }
+
+        function renderMacro() {
+            const container = document.getElementById('page-macro');
+            const macros = [...new Set(fullData.map(i => i.macro))];
+            container.innerHTML = `<h2 class="text-xl font-bold mb-4 px-2 text-gray-800 bg-white/50 backdrop-blur rounded p-2 inline-block">Menu</h2>`;
+            macros.forEach(m => {
+                container.innerHTML += `<div onclick="renderCategories('${m}')" class="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center cursor-pointer active:scale-95 transition-all mt-3"><span class="text-lg font-bold">${m}</span><span class="text-gray-400">→</span></div>`;
+            });
+            showPage('page-macro');
+        }
+
+        function renderCategories(mName) {
+            const container = document.getElementById('page-categories');
+            const cats = [...new Set(fullData.filter(i => i.macro === mName).map(i => i.cat))];
+            container.innerHTML = `<h2 class="text-xl font-bold mb-4 px-2 text-gray-800 bg-white/50 backdrop-blur rounded p-2 inline-block">${mName}</h2>`;
+            cats.forEach(c => {
+                container.innerHTML += `<div onclick="renderItems('${c}')" class="bg-white/90 p-5 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center cursor-pointer mt-3"><span class="font-semibold text-gray-800">${c}</span><span class="text-indigo-500 font-medium">Apri</span></div>`;
+            });
+            navigationStack.push('page-categories');
+            showPage('page-categories');
+        }
+
+        function renderItems(cName) {
+            const container = document.getElementById('page-items');
+            const items = fullData.filter(i => i.cat === cName);
+            container.innerHTML = `<h2 class="text-xl font-bold mb-4 px-2 text-gray-800 bg-white/50 backdrop-blur rounded p-2 inline-block">${cName}</h2>`;
+            items.forEach(i => {
+                container.innerHTML += `<div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-2 mt-3"><div class="flex justify-between items-start gap-4"><h3 class="font-bold text-gray-900">${i.name}</h3><span class="font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">${i.price}</span></div><p class="text-sm text-gray-500">${i.desc}</p></div>`;
+            });
+            navigationStack.push('page-items');
+            showPage('page-items');
+        }
+
+        function showPage(p) {
+            document.querySelectorAll('.page-transition').forEach(el => el.classList.remove('active-page'));
+            document.getElementById(p).classList.add('active-page');
+            
+            // Gestione visibilità tasto indietro
+            const backBtn = document.getElementById('back-button');
+            if(p === 'page-macro') {
+                backBtn.classList.remove('active');
+            } else {
+                backBtn.classList.add('active');
+            }
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        }
+
+        function goBack() { 
+            if(navigationStack.length > 1) {
+                navigationStack.pop(); 
+                showPage(navigationStack[navigationStack.length-1]); 
+            }
+        }
+
         init();
     </script>
 </body>
