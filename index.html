@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Digital Menu Master V8</title>
+    <title>Digital Menu Master V8.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
@@ -23,6 +23,7 @@
             background-attachment: fixed;
             min-height: 100vh;
             font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+            margin: 0;
         }
 
         /* Header Professionale */
@@ -40,7 +41,6 @@
             backdrop-filter: blur(8px);
         }
 
-        /* Contenitore Principale */
         #main-content {
             padding-top: calc(var(--header-h) + 20px);
         }
@@ -61,7 +61,9 @@
             z-index: 110;
             cursor: pointer;
             border: 1px solid rgba(0,0,0,0.05);
+            transition: transform 0.1s ease;
         }
+        #back-button:active { transform: scale(0.9); }
         #back-button.active { display: flex; }
 
         /* Macro Clip */
@@ -86,7 +88,7 @@
         /* Pagine e Transizioni */
         .page-transition { display: none; }
         .active-page { display: block; animation: pageIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        @keyframes pageIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pageIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
 
         .loader { border: 3px solid #f3f3f3; border-top: 3px solid var(--back-color); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -94,19 +96,22 @@
 </head>
 <body>
 
-    <header class="header-master px-6">
+    <header class="header-master px-6 relative">
         <div id="logo-container" class="w-full flex"></div>
-        <div id="subtitle-container" class="text-center mt-1"></div>
+        <div id="subtitle-container" class="text-center"></div>
     </header>
 
     <button id="back-button" onclick="goBack()">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
     </button>
 
-    <main id="main-content" class="px-5 pb-10 max-w-md mx-auto">
-        <div id="loading-screen" class="flex flex-col items-center pt-20 active-page">
-            <div class="loader mb-4"></div>
-            <p class="text-gray-400 text-sm uppercase tracking-widest">Sincronizzazione...</p>
+    <main id="main-content" class="px-5 pb-10 max-w-md mx-auto relative">
+        
+        <div id="loading-screen" class="page-transition active-page">
+            <div class="flex flex-col items-center pt-20">
+                <div class="loader mb-4"></div>
+                <p class="text-gray-400 text-sm uppercase tracking-widest">Sincronizzazione...</p>
+            </div>
         </div>
 
         <section id="page-macro" class="page-transition"></section>
@@ -124,7 +129,10 @@
         let navigationStack = ['page-macro'];
 
         async function init() {
-            if (!SHEET_ID) return;
+            if (!SHEET_ID) {
+                document.getElementById('loading-screen').innerHTML = "<div class='text-center pt-20 text-red-500 font-bold'>Errore: ID Cliente Mancante</div>";
+                return;
+            }
             await fetchConfig();
             applyConfig();
             await fetchMenu();
@@ -132,12 +140,20 @@
 
         async function fetchConfig() {
             const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=config`;
-            const response = await fetch(url);
-            const csv = await response.text();
-            csv.split('\n').slice(1).forEach(row => {
-                const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                if(cols.length >= 2) appConfig[cols[0].replace(/"/g, '').trim()] = cols[1].replace(/"/g, '').replace(/;/g, ',').trim();
-            });
+            try {
+                const response = await fetch(url);
+                const csv = await response.text();
+                // Pulizia più robusta del CSV
+                csv.split('\n').slice(1).forEach(row => {
+                    if(row.trim() === '') return;
+                    const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                    if(cols.length >= 2) {
+                        const key = cols[0].replace(/"/g, '').trim();
+                        const val = cols[1].replace(/"/g, '').replace(/;/g, ',').trim();
+                        appConfig[key] = val;
+                    }
+                });
+            } catch(e) { console.error("Errore Lettura Config"); }
         }
 
         function applyConfig() {
@@ -152,32 +168,42 @@
             // Posizionamento Tasto Indietro
             const backBtn = document.getElementById('back-button');
             const pos = (appConfig.Back_Btn_Position || 'center').toLowerCase();
-            if (pos === 'center') backBtn.style.top = `calc(${appConfig.Header_Height} / 2 - 22px)`;
-            else if (pos === 'bottom') backBtn.style.top = `calc(${appConfig.Header_Height} - 55px)`;
-            else if (pos === 'outside') backBtn.style.top = `calc(${appConfig.Header_Height} + 15px)`;
+            if (pos === 'center') backBtn.style.top = `calc(${appConfig.Header_Height || '120px'} / 2 - 22px)`;
+            else if (pos === 'bottom') backBtn.style.top = `calc(${appConfig.Header_Height || '120px'} - 55px)`;
+            else if (pos === 'outside') backBtn.style.top = `calc(${appConfig.Header_Height || '120px'} + 15px)`;
 
-            // Logo & Sottotitolo
+            // Logo BLINDATO (Evita stampa "undefined")
             const logoCont = document.getElementById('logo-container');
             logoCont.className = `w-full flex justify-${appConfig.Logo_Align || 'center'}`;
-            if(appConfig.Logo_Type === 'image') logoCont.innerHTML = `<img src="${appConfig.Logo_Image_URL}" style="height:${appConfig.Logo_Image_Size}; object-fit:contain;">`;
-            else logoCont.innerHTML = `<h1 style="color:${appConfig.Logo_Text_Color}; font-size:${appConfig.Logo_Text_Size}; font-weight:bold;">${appConfig.Logo_Text}</h1>`;
+            const validLogoText = (appConfig.Logo_Text && appConfig.Logo_Text !== 'undefined') ? appConfig.Logo_Text : 'Menu Digitale';
             
+            if(appConfig.Logo_Type === 'image' && appConfig.Logo_Image_URL) {
+                logoCont.innerHTML = `<img src="${appConfig.Logo_Image_URL}" style="height:${appConfig.Logo_Image_Size || '60px'}; object-fit:contain;">`;
+            } else {
+                logoCont.innerHTML = `<h1 style="color:${appConfig.Logo_Text_Color || '#000'}; font-size:${appConfig.Logo_Text_Size || '24px'}; font-weight:${appConfig.Logo_Text_Bold === 'FALSE' ? 'normal' : 'bold'}; margin:0; line-height:1;">${validLogoText}</h1>`;
+            }
+            
+            // Sottotitolo BLINDATO
             const sub = document.getElementById('subtitle-container');
-            sub.innerText = appConfig.Subtitle_Text || '';
-            sub.style.cssText = `color:${appConfig.Subtitle_Color}; font-size:${appConfig.Subtitle_Size}; margin-top:${appConfig.Subtitle_Margin_Top}; text-align:${appConfig.Subtitle_Align}`;
+            const validSubText = (appConfig.Subtitle_Text && appConfig.Subtitle_Text !== 'undefined') ? appConfig.Subtitle_Text : '';
+            sub.innerText = validSubText;
+            sub.style.cssText = `color:${appConfig.Subtitle_Color || '#666'}; font-size:${appConfig.Subtitle_Size || '14px'}; margin-top:${appConfig.Subtitle_Margin_Top || '5px'}; text-align:${appConfig.Subtitle_Align || 'center'}`;
         }
 
         async function fetchMenu() {
             const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=menu`;
-            const response = await fetch(url);
-            const csv = await response.text();
-            fullData = csv.split('\n').slice(1).map(r => {
-                const c = r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.replace(/"/g, '').trim());
-                return { macro: c[0], cat: c[1], name: c[2], desc: c[3], price: c[4] };
-            }).filter(i => i.macro);
-            
-            document.getElementById('loading-screen').classList.remove('active-page');
-            renderLevel1();
+            try {
+                const response = await fetch(url);
+                const csv = await response.text();
+                fullData = csv.split('\n').slice(1).filter(r => r.trim() !== '').map(r => {
+                    const c = r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.replace(/"/g, '').trim());
+                    return { macro: c[0], cat: c[1], name: c[2], desc: c[3], price: c[4] };
+                }).filter(i => i.macro);
+                
+                renderLevel1();
+            } catch (e) {
+                document.getElementById('loading-screen').innerHTML = "<div class='text-center pt-20 text-red-500'>Nessun menu trovato.</div>";
+            }
         }
 
         // LIVELLO 1: Le Macro Clip
@@ -190,15 +216,25 @@
             container.innerHTML = '';
 
             macros.forEach(m => {
-                const img = appConfig[`Macro_Img_${m}`];
-                const bg = img ? `url('${img}')` : 'linear-gradient(135deg, #e5e7eb, #f3f4f6)';
-                const tPos = (appConfig.Macro_Text_Pos || 'outside').toLowerCase();
+                // Ricerca immagine nel config, previene undefined
+                const imgKey = `Macro_Img_${m}`;
+                const imgUrl = appConfig[imgKey];
+                const bg = (imgUrl && imgUrl !== 'undefined') ? `url('${imgUrl}')` : 'linear-gradient(135deg, #cbd5e1, #f1f5f9)'; // Grigio Elegante di Fallback
+                const tPos = (appConfig.Macro_Text_Pos || 'center').toLowerCase(); // Default 'center'
 
                 let html = '';
                 if(tPos === 'outside') {
-                    html = `<div onclick="renderLevel2('${m}')" class="flex flex-col cursor-pointer"><div class="macro-card" style="background-image:${bg}"></div><span class="text-center mt-2 font-bold text-gray-800 uppercase tracking-wide text-sm">${m}</span></div>`;
+                    html = `
+                        <div onclick="renderLevel2('${m.replace(/'/g, "\\'")}')" class="flex flex-col cursor-pointer">
+                            <div class="macro-card w-full" style="background-image:${bg}"></div>
+                            <span class="text-center mt-2 font-bold text-gray-800 uppercase tracking-wide text-sm">${m}</span>
+                        </div>`;
                 } else {
-                    html = `<div onclick="renderLevel2('${m}')" class="macro-card flex items-center justify-center cursor-pointer" style="background-image:${bg}"><div class="macro-overlay"></div><span class="relative z-10 text-white font-bold text-xl uppercase tracking-widest">${m}</span></div>`;
+                    html = `
+                        <div onclick="renderLevel2('${m.replace(/'/g, "\\'")}')" class="macro-card w-full flex items-center justify-center cursor-pointer" style="background-image:${bg}">
+                            <div class="macro-overlay"></div>
+                            <span class="relative z-10 text-white font-extrabold text-xl uppercase tracking-widest text-shadow">${m}</span>
+                        </div>`;
                 }
                 container.innerHTML += html;
             });
@@ -210,12 +246,12 @@
             const container = document.getElementById('page-categories');
             const cats = [...new Set(fullData.filter(i => i.macro === mName).map(i => i.cat))];
             
-            container.innerHTML = `<h2 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2 pl-1">${mName}</h2>`;
+            container.innerHTML = `<h2 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-3 pl-1">${mName}</h2>`;
             cats.forEach(c => {
                 container.innerHTML += `
-                    <div onclick="renderLevel3('${mName}', '${c}')" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center cursor-pointer active:bg-gray-50">
-                        <span class="font-bold text-gray-800">${c}</span>
-                        <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    <div onclick="renderLevel3('${mName.replace(/'/g, "\\'")}', '${c.replace(/'/g, "\\'")}')" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center cursor-pointer active:bg-gray-50 mb-3">
+                        <span class="font-bold text-gray-800 text-lg">${c}</span>
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                     </div>`;
             });
             navigationStack.push('page-categories');
@@ -227,13 +263,13 @@
             const container = document.getElementById('page-items');
             const items = fullData.filter(i => i.cat === cName && i.macro === mName);
             
-            container.innerHTML = `<h2 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2 pl-1">${cName}</h2>`;
+            container.innerHTML = `<h2 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-3 pl-1">${cName}</h2>`;
             items.forEach(i => {
                 container.innerHTML += `
-                    <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-50 space-y-2">
-                        <div class="flex justify-between items-start">
+                    <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-2 mb-4">
+                        <div class="flex justify-between items-start gap-4">
                             <h3 class="font-extrabold text-gray-900 text-lg leading-tight">${i.name}</h3>
-                            <span class="font-black text-indigo-600 ml-4">${i.price}</span>
+                            <span class="font-black text-indigo-600 shrink-0 bg-indigo-50 px-2 py-1 rounded">${i.price}</span>
                         </div>
                         <p class="text-sm text-gray-500 leading-relaxed font-medium">${i.desc}</p>
                     </div>`;
@@ -245,7 +281,14 @@
         function showPage(p) {
             document.querySelectorAll('.page-transition').forEach(el => el.classList.remove('active-page'));
             document.getElementById(p).classList.add('active-page');
-            document.getElementById('back-button').classList.toggle('active', p !== 'page-macro');
+            
+            // Gestione del Tasto Indietro
+            const backBtn = document.getElementById('back-button');
+            if(p === 'page-macro') {
+                backBtn.classList.remove('active');
+            } else {
+                backBtn.classList.add('active');
+            }
             window.scrollTo({top: 0, behavior: 'smooth'});
         }
 
