@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Digital Menu Master V6.1</title>
+    <title>Digital Menu Master V7</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
@@ -11,6 +11,11 @@
             --header-h: 120px;
             --back-bg: rgba(255, 255, 255, 0.9);
             --back-color: #4f46e5;
+            
+            /* Variabili Macro */
+            --macro-h: 140px;
+            --macro-font: sans-serif;
+            --macro-color: #ffffff;
         }
 
         body {
@@ -23,7 +28,7 @@
         }
 
         .glass-header {
-            background: var(--header-bg, rgba(255,255,255,0.85));
+            background: var(--header-bg, #ffffff);
             height: var(--header-h);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
@@ -34,9 +39,10 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
+            /* Aggiunta l'ombra leggera sotto l'header */
+            box-shadow: 0 4px 10px -2px rgba(0,0,0,0.08);
         }
 
-        /* Il bottone ora è fixed alla finestra, non bloccato nell'header */
         #back-button {
             position: fixed;
             left: 15px;
@@ -44,7 +50,7 @@
             height: 42px;
             background: var(--back-bg);
             color: var(--back-color);
-            display: none; /* Nascosto in Home */
+            display: none; 
             align-items: center;
             justify-content: center;
             border-radius: 999px;
@@ -54,10 +60,7 @@
             cursor: pointer;
         }
 
-        /* La classe active viene aggiunta da JS quando non siamo in home */
-        #back-button.active { 
-            display: flex; 
-        }
+        #back-button.active { display: flex; }
 
         .dynamic-subtitle {
             margin-top: var(--sub-mt, 10px);
@@ -65,6 +68,47 @@
             color: var(--sub-color);
             font-size: var(--sub-size);
             text-align: var(--sub-align);
+        }
+
+        /* Stili per le Macro Card */
+        .macro-card {
+            height: var(--macro-h);
+            border-radius: 1rem;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+            transition: transform 0.1s ease;
+        }
+        .macro-card:active { transform: scale(0.97); }
+        
+        /* Overlay scuro per leggere il testo se è dentro l'immagine */
+        .macro-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.5));
+            z-index: 1;
+        }
+
+        .macro-text {
+            font-family: var(--macro-font);
+            color: var(--macro-color);
+            position: relative;
+            z-index: 2;
+            font-weight: bold;
+            font-size: 1.25rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        /* Testo fuori dall'immagine */
+        .macro-text-outside {
+            font-family: var(--macro-font);
+            color: var(--macro-color); /* Qui il colore andrebbe magari scuro se lo sfondo app è chiaro, ma obbediamo al config */
+            font-weight: bold;
+            font-size: 1.1rem;
+            text-align: center;
+            margin-top: 0.5rem;
         }
 
         .page-transition { display: none; }
@@ -94,7 +138,7 @@
             <p id="loading-text" class="text-gray-500 font-medium">Caricamento...</p>
         </div>
 
-        <section id="page-macro" class="page-transition space-y-4"></section>
+        <section id="page-macro" class="page-transition"></section>
         <section id="page-categories" class="page-transition space-y-4"></section>
         <section id="page-items" class="page-transition space-y-6"></section>
     </main>
@@ -107,10 +151,7 @@
         let navigationStack = ['page-macro'];
 
         async function init() {
-            if (!SHEET_ID) {
-                document.getElementById('loading-screen').innerHTML = "<p class='text-red-500'>ID mancante.</p>";
-                return;
-            }
+            if (!SHEET_ID) return document.getElementById('loading-screen').innerHTML = "<p class='text-red-500'>ID mancante.</p>";
             await fetchConfig();
             applyConfig();
             await fetchMenu();
@@ -127,26 +168,21 @@
                         appConfig[cols[0].replace(/"/g, '').trim()] = cols[1].replace(/"/g, '').replace(/;/g, ',').trim();
                     }
                 });
-            } catch(e) { console.error("Errore Config:", e); }
+            } catch(e) { console.error("Errore Config"); }
         }
 
         function applyConfig() {
             const root = document.documentElement;
             
-            // Header & Sfondo
+            // Header & App Bg
             root.style.setProperty('--header-h', appConfig.Header_Height || '100px');
-            root.style.setProperty('--header-bg', appConfig.Header_BgColor);
-            
-            if(appConfig.Bg_Type === 'image') {
-                root.style.setProperty('--app-bg-img', `url('${appConfig.Bg_Image_URL}')`);
-            } else {
-                root.style.setProperty('--app-bg', appConfig.Bg_Color);
-            }
+            root.style.setProperty('--header-bg', appConfig.Header_BgColor || '#ffffff');
+            if(appConfig.Bg_Type === 'image') root.style.setProperty('--app-bg-img', `url('${appConfig.Bg_Image_URL}')`);
+            else root.style.setProperty('--app-bg', appConfig.Bg_Color || '#f3f4f6');
 
-            // --- POSIZIONAMENTO TASTO INDIETRO ---
+            // Bottone Indietro
             root.style.setProperty('--back-bg', appConfig.Back_Btn_Bg || 'rgba(255,255,255,0.9)');
             root.style.setProperty('--back-color', appConfig.Back_Btn_Color || '#000');
-            
             const backBtn = document.getElementById('back-button');
             const pos = (appConfig.Back_Btn_Position || 'center').toLowerCase();
             let extraPadding = 20;
@@ -160,20 +196,15 @@
             } else if (pos === 'outside') {
                 backBtn.style.top = `calc(${appConfig.Header_Height || '100px'} + 15px)`;
                 backBtn.style.transform = 'none';
-                extraPadding = 75; // Aumenta lo spazio sotto l'header per non coprire il menu
+                extraPadding = 75; 
             }
-            
-            // Calcolo infallibile per non far finire il menu sotto l'header
             document.getElementById('main-content').style.paddingTop = `calc(${appConfig.Header_Height || '100px'} + ${extraPadding}px)`;
 
             // Logo & Sottotitolo
             const logoCont = document.getElementById('logo-container');
             logoCont.className = `w-full flex justify-${appConfig.Logo_Align || 'center'}`;
-            if(appConfig.Logo_Type === 'image') {
-                logoCont.innerHTML = `<img src="${appConfig.Logo_Image_URL}" style="height:${appConfig.Logo_Image_Size}; object-fit:contain;">`;
-            } else {
-                logoCont.innerHTML = `<h1 style="color:${appConfig.Logo_Text_Color}; font-size:${appConfig.Logo_Text_Size}; font-family:${appConfig.Logo_Text_Font}; font-weight:${appConfig.Logo_Text_Bold === 'TRUE' ? 'bold' : 'normal'}; line-height:1;">${appConfig.Logo_Text}</h1>`;
-            }
+            if(appConfig.Logo_Type === 'image') logoCont.innerHTML = `<img src="${appConfig.Logo_Image_URL}" style="height:${appConfig.Logo_Image_Size}; object-fit:contain;">`;
+            else logoCont.innerHTML = `<h1 style="color:${appConfig.Logo_Text_Color}; font-size:${appConfig.Logo_Text_Size}; font-family:${appConfig.Logo_Text_Font}; font-weight:${appConfig.Logo_Text_Bold === 'TRUE' ? 'bold' : 'normal'}; line-height:1;">${appConfig.Logo_Text}</h1>`;
 
             document.getElementById('subtitle-container').innerText = appConfig.Subtitle_Text || '';
             root.style.setProperty('--sub-mt', appConfig.Subtitle_Margin_Top || '10px');
@@ -181,9 +212,13 @@
             root.style.setProperty('--sub-color', appConfig.Subtitle_Color);
             root.style.setProperty('--sub-size', appConfig.Subtitle_Size);
             root.style.setProperty('--sub-align', appConfig.Subtitle_Align);
+
+            // Variabili Macro Card
+            root.style.setProperty('--macro-h', appConfig.Macro_Height || '140px');
+            root.style.setProperty('--macro-font', appConfig.Macro_Text_Font || 'sans-serif');
+            root.style.setProperty('--macro-color', appConfig.Macro_Text_Color || '#ffffff');
         }
 
-        // --- Logica Menu (Placeholder funzionante) ---
         async function fetchMenu() {
             const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=menu`;
             try {
@@ -197,21 +232,57 @@
                 
                 document.getElementById('loading-screen').classList.remove('active-page');
                 renderMacro();
-            } catch(e) {
-                document.getElementById('loading-text').innerText = "Nessun menu trovato.";
-            }
+            } catch(e) { document.getElementById('loading-text').innerText = "Errore caricamento menu."; }
         }
 
+        // --- NUOVO RENDER MACRO CON CLIP FOTOGRAFICHE ---
         function renderMacro() {
             const container = document.getElementById('page-macro');
             const macros = [...new Set(fullData.map(i => i.macro))];
-            container.innerHTML = `<h2 class="text-xl font-bold mb-4 px-2 text-gray-800 bg-white/50 backdrop-blur rounded p-2 inline-block">Menu</h2>`;
+            
+            // 1. Imposta la griglia o la lista in base alla configurazione
+            const isGrid = (appConfig.Macro_Layout || 'grid').toLowerCase() === 'grid';
+            container.className = `page-transition active-page ${isGrid ? 'grid grid-cols-2 gap-4' : 'flex flex-col space-y-4'}`;
+            container.innerHTML = ''; // Pulisce il titolo, partiamo subito con le clip
+
+            // 2. Calcola la posizione del testo
+            const tPos = (appConfig.Macro_Text_Pos || 'center').toLowerCase();
+            let flexClasses = "items-center justify-center text-center"; // center
+            if(tPos === 'top') flexClasses = "items-start justify-center text-center pt-4";
+            if(tPos === 'bottom') flexClasses = "items-end justify-center text-center pb-4";
+            if(tPos === 'left') flexClasses = "items-center justify-start text-left pl-5";
+            if(tPos === 'right') flexClasses = "items-center justify-end text-right pr-5";
+
             macros.forEach(m => {
-                container.innerHTML += `<div onclick="renderCategories('${m}')" class="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center cursor-pointer active:scale-95 transition-all mt-3"><span class="text-lg font-bold">${m}</span><span class="text-gray-400">→</span></div>`;
+                // Cerca l'immagine specifica nel config (es. Macro_Img_Cibo)
+                const imgKey = `Macro_Img_${m}`;
+                const bgImage = appConfig[imgKey] ? `url('${appConfig[imgKey]}')` : 'linear-gradient(135deg, #4f46e5, #818cf8)';
+
+                let cardHTML = '';
+
+                if (tPos === 'outside') {
+                    // Stile con testo FUORI dalla clip immagine
+                    cardHTML = `
+                        <div class="flex flex-col cursor-pointer group" onclick="renderCategories('${m}')">
+                            <div class="macro-card w-full" style="background-image: ${bgImage};"></div>
+                            <span class="macro-text-outside group-active:scale-95 transition-transform">${m}</span>
+                        </div>
+                    `;
+                } else {
+                    // Stile con testo DENTRO la clip immagine
+                    cardHTML = `
+                        <div onclick="renderCategories('${m}')" class="macro-card w-full flex ${flexClasses} cursor-pointer" style="background-image: ${bgImage};">
+                            <div class="macro-overlay"></div>
+                            <span class="macro-text">${m}</span>
+                        </div>
+                    `;
+                }
+
+                container.innerHTML += cardHTML;
             });
-            showPage('page-macro');
         }
 
+        // ... (resto delle funzioni renderCategories, renderItems, showPage, goBack identiche alla V6.1)
         function renderCategories(mName) {
             const container = document.getElementById('page-categories');
             const cats = [...new Set(fullData.filter(i => i.macro === mName).map(i => i.cat))];
@@ -237,14 +308,7 @@
         function showPage(p) {
             document.querySelectorAll('.page-transition').forEach(el => el.classList.remove('active-page'));
             document.getElementById(p).classList.add('active-page');
-            
-            // Gestione visibilità tasto indietro
-            const backBtn = document.getElementById('back-button');
-            if(p === 'page-macro') {
-                backBtn.classList.remove('active');
-            } else {
-                backBtn.classList.add('active');
-            }
+            document.getElementById('back-button').classList.toggle('active', p !== 'page-macro');
             window.scrollTo({top: 0, behavior: 'smooth'});
         }
 
