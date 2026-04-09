@@ -1,4 +1,4 @@
-const CACHE_NAME = 'menu-digitale-v1';
+const CACHE_NAME = 'menu-digitale-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -7,17 +7,30 @@ const ASSETS_TO_CACHE = [
   '/manifest.json'
 ];
 
-// Installa e salva in cache
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(ASSETS_TO_CACHE))
+      .then(() => self.skipWaiting())
   );
 });
 
-// Recupera dalla rete, usa cache come fallback (Network First)
+self.addEventListener('activate', event => {
+    event.waitUntil(
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cache => {
+                    if (cache !== CACHE_NAME) {
+                        return caches.delete(cache);
+                    }
+                })
+            );
+        })
+    );
+});
+
 self.addEventListener('fetch', event => {
-    // Non cacha le API di Google Sheets per avere sempre il menu aggiornato
+    // Non chachiamo mai le chiamate a Google per permettere l'aggiornamento real-time!
     if (event.request.url.includes('docs.google.com')) {
         return; 
     }
