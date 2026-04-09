@@ -3,201 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PWA Master App</title>
+    <meta name="theme-color" content="#ffffff">
+    <title>PWA CSV Master</title>
     
     <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
     
     <style>
-        /* CSS Architetturale di base */
-        :root {
-            --primary: #0f172a;
-            --accent: #3b82f6;
-            --bg: #f8fafc;
-            --card-bg: #ffffff;
-            --text: #334155;
-        }
-
-        body { 
-            font-family: system-ui, -apple-system, sans-serif; 
-            background-color: var(--bg); 
-            color: var(--text); 
-            margin: 0; 
-            padding: 2rem; 
-        }
-
-        .header { text-align: center; margin-bottom: 2rem; }
-        
-        .control-panel { 
-            background: var(--card-bg); 
-            padding: 1.5rem; 
-            border-radius: 12px; 
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
-            margin-bottom: 2rem; 
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            align-items: center;
-        }
-
-        button {
-            background: var(--accent);
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: opacity 0.2s;
-        }
-
-        button:hover { opacity: 0.9; }
-
-        /* Griglia per il Livello 1 (Macro) */
-        .grid-macro { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
-            gap: 1.5rem; 
-        }
-
-        .card-macro { 
-            background: var(--card-bg); 
-            padding: 2rem; 
-            border-radius: 12px; 
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); 
-            cursor: pointer; 
-            border-left: 5px solid var(--accent);
-            transition: transform 0.2s ease, box-shadow 0.2s ease; 
-        }
-
-        .card-macro:hover { 
-            transform: translateY(-4px); 
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); 
-        }
-
-        .card-macro h2 { margin: 0 0 0.5rem 0; color: var(--primary); }
+        body { font-family: sans-serif; margin: 0; padding: 20px; background: #fff; }
+        #output { margin-top: 20px; }
     </style>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 </head>
 <body>
 
-    <div class="header">
-        <h1>Dashboard PWA</h1>
-        <p>Inizializza l'applicazione caricando il database (CSV)</p>
+    <div id="app">
+        <div id="output">In attesa del CSV...</div>
     </div>
 
-    <div class="control-panel">
-        <input type="file" id="csvFileInput" accept=".csv" />
-        <button onclick="loadCSV()">Costruisci App</button>
-    </div>
-
-    <div id="macro-container" class="grid-macro">
-        </div>
-
-    <script>
-        // Il nostro "Store" globale che terrà in memoria l'albero a 3 livelli
-        let appData = {};
-
-        // Funzione per innescare la lettura del file
-        function loadCSV() {
-            const fileInput = document.getElementById('csvFileInput');
-            const file = fileInput.files[0];
-
-            if (!file) {
-                alert("Attenzione: seleziona un file CSV per procedere.");
-                return;
-            }
-
-            // Parsing con PapaParse
-            Papa.parse(file, {
-                header: true, // Usa la prima riga come chiavi
-                skipEmptyLines: true,
-                complete: function(results) {
-                    console.log("Dati grezzi acquisiti:", results.data);
-                    buildDataTree(results.data);
-                },
-                error: function(err) {
-                    console.error("Errore di lettura:", err);
-                    alert("Impossibile leggere il file. Verifica il formato.");
-                }
-            });
-        }
-
-        // Funzione per costruire l'albero a 3 livelli
-        function buildDataTree(rawData) {
-            appData = {}; // Reset
-
-            // Costruiamo la gerarchia aspettandoci queste colonne: Livello1, Livello2, Livello3
-            rawData.forEach(row => {
-                const l1 = row['Livello1'];
-                const l2 = row['Livello2'];
-                const l3 = row['Livello3'];
-
-                if (!l1) return; // Salta righe invalide
-
-                // Costruisci il Livello 1
-                if (!appData[l1]) appData[l1] = {};
-                
-                // Costruisci il Livello 2
-                if (l2 && !appData[l1][l2]) appData[l1][l2] = [];
-                
-                // Inserisci i dati del Livello 3 (l'oggetto riga completo)
-                if (l3 && l2) appData[l1][l2].push(row);
-            });
-
-            console.log("Albero dati costruito:", appData);
-            renderLevel1();
-        }
-
-        // Funzione per renderizzare il Livello Macro
-        function renderLevel1() {
-            const container = document.getElementById('macro-container');
-            container.innerHTML = ''; // Svuota l'interfaccia
-
-            const macroCategories = Object.keys(appData);
-
-            if (macroCategories.length === 0) {
-                container.innerHTML = '<p>Nessuna categoria trovata. Verifica l\'intestazione del CSV.</p>';
-                return;
-            }
-
-            macroCategories.forEach(macro => {
-                const card = document.createElement('div');
-                card.className = 'card-macro';
-                
-                // Calcoliamo quante sottocategorie ha per mostrare un dato utile
-                const subCount = Object.keys(appData[macro]).length;
-
-                card.innerHTML = `
-                    <h2>${macro}</h2>
-                    <p>${subCount} Sottocategorie disponibili</p>
-                `;
-                
-                // Event Listener per passare al livello 2
-                card.onclick = () => {
-                    goToLevel2(macro);
-                };
-                
-                container.appendChild(card);
-            });
-        }
-
-        // Placeholder per la transizione al livello 2
-        function goToLevel2(macroName) {
-            console.log("Dati per il livello 2:", appData[macroName]);
-            alert(`Navigazione verso: ${macroName}. Preparare il Livello 2!`);
-            // Nel prossimo step scriveremo la logica per nascondere il container L1 
-            // e mostrare il container L2.
-        }
-
-        // --- PWA SETUP: Registrazione del Service Worker ---
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                // Commentato finché non creiamo il file sw.js
-                // navigator.serviceWorker.register('/sw.js');
-                console.log("Pronto per la registrazione del Service Worker.");
-            });
-        }
-    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
