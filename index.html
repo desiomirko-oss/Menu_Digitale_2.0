@@ -3,24 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Menu Digitale Premium</title>
+    <title>Menu Digitale</title>
+    
     <meta name="google" content="translate">
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <style>
         :root {
-            --app-bg: #f9fafb; --app-bg-img: none; --app-bg-size: cover; --app-bg-pos: center;
+            /* VARIABILI BASE SOVRASCRITTE DAL CONFIG */
+            --app-bg: #f9fafb; 
+            --app-bg-img: none;
+            --app-bg-size: cover;
+            --app-bg-pos: center;
+
             --header-bg: rgba(255, 255, 255, 0.95); --header-h: 120px;
             --back-bg: rgba(255, 255, 255, 0.9); --back-color: #4f46e5; --macro-h: 180px;
+            
             --card-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); 
             --menu-card-bg: #ffffff; --menu-card-p: 20px; --menu-card-r: 24px;
             --menu-card-border: 1px solid #f3f4f6; --menu-card-shadow: var(--card-shadow);
+            
             --cat-card-min-h: 80px; --item-card-min-h: 120px;
+
+            /* MACRO E PIATTI TIPOGRAFIA */
             --macro-t-f: sans-serif; --macro-t-c: #ffffff; --macro-t-s: 20px; --macro-txt-sh: none;
+            
             --i-name-f: sans-serif; --i-name-c: #111827; --i-name-s: 18px; --i-name-w: bold; --i-name-mb: 4px; --i-name-sh: none;
             --i-desc-f: sans-serif; --i-desc-c: #6b7280; --i-desc-s: 14px; --i-desc-w: normal; --i-desc-mb: 8px; --i-desc-sh: none;
             --i-allg-f: sans-serif; --i-allg-c: #f87171; --i-allg-s: 11px; --i-allg-w: normal; --i-allg-mb: 8px; --i-allg-sh: none;
             --i-pric-f: sans-serif; --i-pric-c: #4f46e5; --i-pric-s: 16px; --i-pric-w: bold; --i-pric-sh: none;
+            
             --level-txt-sh: none; --level-mb: 25px; 
+
+            /* DIMENSIONI FOTO E FILTRI */
             --i-photo-w: 110px; --i-photo-h: 110px; --i-photo-sh: none;
             --flt-f: sans-serif; --flt-s: 11px; --flt-w: bold;
             --flt-bg-i: #f3f4f6; --flt-c-i: #9ca3af;
@@ -36,6 +51,7 @@
             min-height: 100vh; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; margin: 0; overscroll-behavior-y: none; 
         }
 
+        /* HEADER PRINCIPALE */
         #main-header {
             background: var(--header-bg); min-height: var(--header-h); 
             position: fixed; top: 0; left: 0; width: 100%; z-index: 999;
@@ -45,6 +61,7 @@
         }
         #header-content-wrapper { transition: padding-left 0.3s ease; width: 100%; }
 
+        /* SUB-HEADER PER CATEGORIE E FILTRI */
         #sub-header {
             background: var(--header-bg); 
             position: fixed; width: 100%; z-index: 998; left: 0; display: none; 
@@ -142,6 +159,13 @@
     </main>
 
     <script>
+        // NUKER CACHE POTENZIATO
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) { registration.unregister(); }
+            });
+        }
+
         const urlParams = new URLSearchParams(window.location.search);
         const SHEET_ID = urlParams.get('id'); 
         let appConfig = {};
@@ -152,21 +176,22 @@
         let currentMacroName = '';
         let currentCategoryName = '';
 
-        // --- 1. IL CONVERTITORE MAGICO PER GOOGLE DRIVE E DROPBOX ---
+        // CONVERTITORE URL CLOUD (Drive & Dropbox)
         function formatImgUrl(url) {
             if (!url) return '';
             let formatted = String(url).trim();
             const driveRegex = /drive\.google\.com\/file\/d\/([^\/]+)/;
             const match = formatted.match(driveRegex);
             if (match && match[1]) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+            
             const openRegex = /drive\.google\.com\/open\?id=([^&]+)/;
             const matchOpen = formatted.match(openRegex);
             if (matchOpen && matchOpen[1]) return `https://drive.google.com/uc?export=view&id=${matchOpen[1]}`;
+            
             if (formatted.includes('dropbox.com') && formatted.includes('dl=0')) return formatted.replace('dl=0', 'raw=1');
             return formatted;
         }
 
-        // LETTURA CHIAVI CASE-INSENSITIVE + TRIM
         function getVal(key, def) {
             const k = String(key).toLowerCase().trim();
             let v = appConfig[k];
@@ -221,53 +246,56 @@
 
         async function fetchConfig() {
             const rString = Math.random().toString(36).substring(7);
-            // Forza Google a caricare le schede corrette provando diverse varianti di nome
-            const variants = ['Config', 'config', 'CONFIG', 'Settaggi'];
+            // Ricerca Multipla: Tenta di trovare il foglio Config in ogni sua variante di lingua
+            const variants = ['Config', 'config', 'CONFIG', 'Settaggi', 'Ajustes', 'Configuracion', 'Settings'];
             let csv = '';
             
             for(let v of variants) {
                 try {
                     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${v}&_t=${Date.now()}&_r=${rString}`;
-                    const res = await fetch(url);
+                    const res = await fetch(url, { headers: { 'Cache-Control': 'no-cache' } });
                     const text = await res.text();
-                    if(text.toLowerCase().includes('logo_')) {
+                    
+                    // Controllo Morbido: Se contiene virgole e NON contiene 'categoria', è il nostro config!
+                    if(!text.toLowerCase().includes('categoria') && text.includes(',')) {
                         csv = text;
                         break;
                     }
                 } catch(e) {}
             }
 
-            if(!csv) {
-                console.error("Scheda Config non trovata.");
-                return;
-            }
-
             appConfig = {}; 
-            csv.split(/\r?\n/).forEach(row => {
-                if(row.trim() === '') return;
-                const cols = safeParseCSVRow(row);
-                if(cols.length >= 2 && cols[0] !== '') {
-                    let key = cols[0].replace(/^"|"$/g, '').replace(/,+$/, '').trim().toLowerCase(); 
-                    if(key === 'property' || key === 'proprietà') return; 
-                    let val = cols[1] ? cols[1].replace(/^"|"$/g, '').trim() : ''; 
-                    if(val.toLowerCase().includes('rgba') || val.toLowerCase().includes('rgb')) {
-                        val = val.replace(/;/g, ',');
+            
+            if(csv) {
+                csv.split(/\r?\n/).forEach(row => {
+                    if(row.trim() === '') return;
+                    const cols = safeParseCSVRow(row);
+                    if(cols.length >= 2 && cols[0] !== '') {
+                        let key = cols[0].replace(/^"|"$/g, '').replace(/,+$/, '').trim().toLowerCase(); 
+                        if(key === 'property' || key === 'proprietà' || key === 'propiedad') return; 
+                        
+                        let val = cols[1] ? cols[1].replace(/^"|"$/g, '').trim() : ''; 
+                        if(val.toLowerCase().includes('rgba') || val.toLowerCase().includes('rgb')) {
+                            val = val.replace(/;/g, ',');
+                        }
+                        appConfig[key] = val;
                     }
-                    appConfig[key] = val;
-                }
-            });
-            console.log("Configurazione Caricata:", appConfig);
+                });
+            } else {
+                console.warn("Scheda Configurazione non trovata. Uso valori di Default.");
+            }
         }
 
         function applyConfig() {
             const root = document.documentElement;
             
-            // SFONDO DINAMICO
+            // INTELLIGENZA SFONDO: Se c'è un link in Bg_Image_URL forza l'immagine
+            const bgUrl = formatImgUrl(getVal('Bg_Image_URL', ''));
             const bgType = getVal('Bg_Type', 'color').toLowerCase();
+            
             root.style.setProperty('--app-bg', getVal('Bg_Color', '#f9fafb'));
             
-            if(bgType.includes('imag') || bgType === 'img') {
-                const bgUrl = formatImgUrl(getVal('Bg_Image_URL', ''));
+            if(bgUrl !== '' || bgType.includes('img') || bgType.includes('imag')) {
                 if (bgUrl) root.style.setProperty('--app-bg-img', `url('${bgUrl}')`);
                 else root.style.setProperty('--app-bg-img', 'none');
             } else {
@@ -283,7 +311,6 @@
             root.style.setProperty('--back-bg', getVal('Back_Btn_Bg', 'rgba(255, 255, 255, 0.9)'));
             root.style.setProperty('--back-color', getVal('Back_Btn_Color', '#000'));
 
-            // CARD E OMBRE
             let shadowVal = '0 10px 15px -3px rgba(0,0,0,0.1)'; 
             const shadowInt = getVal('Card_Shadow_Intensity', 'medium').toLowerCase();
             if(shadowInt === 'light') shadowVal = '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)';
@@ -303,30 +330,67 @@
             root.style.setProperty('--cat-card-min-h', getVal('Category_Card_MinHeight', '80px'));
             root.style.setProperty('--item-card-min-h', getVal('Item_Card_MinHeight', '120px'));
 
-            // TIPOGRAFIA
+            root.style.setProperty('--i-photo-w', getVal('Item_Photo_Width', '110px'));
+            root.style.setProperty('--i-photo-h', getVal('Item_Photo_Height', '110px'));
+            root.style.setProperty('--i-photo-sh', getShadow('Item_Photo_Shadow', false));
+
             root.style.setProperty('--macro-t-f', getVal('Macro_Text_Font', 'sans-serif'));
             root.style.setProperty('--macro-t-c', getVal('Macro_Text_Color', '#ffffff'));
             root.style.setProperty('--macro-t-s', getVal('Macro_Text_Size', '20px'));
+            root.style.setProperty('--macro-txt-sh', getShadow('Macro_Text_Shadow', true));
+
             root.style.setProperty('--i-name-f', getVal('Item_Name_Font', 'sans-serif'));
             root.style.setProperty('--i-name-c', getVal('Item_Name_Color', '#111827'));
             root.style.setProperty('--i-name-s', getVal('Item_Name_Size', '18px'));
             root.style.setProperty('--i-name-w', isTruthy('Item_Name_Bold', true, true) ? 'bold' : 'normal');
-            root.style.setProperty('--i-pric-c', getVal('Item_Price_Color', '#4f46e5'));
+            root.style.setProperty('--i-name-mb', getVal('Item_Name_MarginBottom', '4px'));
+            root.style.setProperty('--i-name-sh', getShadow('Item_Name_Shadow', true));
 
-            // --- LOGO ENGINE DINAMICO ---
+            root.style.setProperty('--i-desc-f', getVal('Item_Desc_Font', 'sans-serif'));
+            root.style.setProperty('--i-desc-c', getVal('Item_Desc_Color', '#6b7280'));
+            root.style.setProperty('--i-desc-s', getVal('Item_Desc_Size', '14px'));
+            root.style.setProperty('--i-desc-w', isTruthy('Item_Desc_Bold', true, false) ? 'bold' : 'normal');
+            root.style.setProperty('--i-desc-mb', getVal('Item_Desc_MarginBottom', '8px'));
+            root.style.setProperty('--i-desc-sh', getShadow('Item_Desc_Shadow', true));
+
+            root.style.setProperty('--i-allg-f', getVal('Item_Allerg_Font', 'sans-serif'));
+            root.style.setProperty('--i-allg-c', getVal('Item_Allerg_Color', '#f87171'));
+            root.style.setProperty('--i-allg-s', getVal('Item_Allerg_Size', '11px'));
+            root.style.setProperty('--i-allg-w', isTruthy('Item_Allerg_Bold', true, false) ? 'bold' : 'normal');
+            root.style.setProperty('--i-allg-mb', getVal('Item_Allerg_MarginBottom', '8px'));
+            root.style.setProperty('--i-allg-sh', getShadow('Item_Allerg_Shadow', true));
+
+            root.style.setProperty('--i-pric-f', getVal('Item_Price_Font', 'sans-serif'));
+            root.style.setProperty('--i-pric-c', getVal('Item_Price_Color', '#4f46e5'));
+            root.style.setProperty('--i-pric-s', getVal('Item_Price_Size', '16px'));
+            root.style.setProperty('--i-pric-w', isTruthy('Item_Price_Bold', true, true) ? 'bold' : 'normal');
+            root.style.setProperty('--i-pric-sh', getShadow('Item_Price_Shadow', true));
+            
+            root.style.setProperty('--flt-f', getVal('Filter_Font', 'sans-serif'));
+            root.style.setProperty('--flt-s', getVal('Filter_Size', '11px'));
+            root.style.setProperty('--flt-w', isTruthy('Filter_Bold', true, true) ? 'bold' : 'normal');
+            root.style.setProperty('--flt-bg-i', getVal('Filter_BgColor_Inactive', '#f3f4f6'));
+            root.style.setProperty('--flt-c-i', getVal('Filter_TextColor_Inactive', '#9ca3af'));
+            root.style.setProperty('--flt-bg-a', getVal('Filter_BgColor_Active', '#4f46e5'));
+            root.style.setProperty('--flt-c-a', getVal('Filter_TextColor_Active', '#ffffff'));
+
+            // INTELLIGENZA LOGO: Se c'è l'URL, usa l'immagine indipendentemente dal Logo_Type
             const logoCont = document.getElementById('logo-container');
             const logoType = getVal('Logo_Type', 'text').toLowerCase();
             const align = getVal('Logo_Align', 'center').toLowerCase();
             logoCont.innerHTML = ''; 
             logoCont.className = `w-full flex justify-${align === 'left' ? 'start' : align === 'right' ? 'end' : 'center'}`;
             
-            const isLogoImg = logoType.includes('imag') || logoType.includes('img');
             const logoUrl = formatImgUrl(getVal('Logo_Image_URL', ''));
 
-            if (isLogoImg && logoUrl !== '') {
-                logoCont.innerHTML = `<img src="${logoUrl}" alt="Logo" style="max-height:${getVal('Logo_Image_Size', '60px')}; object-fit:contain; max-width:100%;">`;
+            if (logoUrl !== '' || logoType.includes('imag') || logoType.includes('img') || logoType.includes('foto')) {
+                if(logoUrl) {
+                    logoCont.innerHTML = `<img src="${logoUrl}" alt="Logo" style="max-height:${getVal('Logo_Image_Size', '60px')}; object-fit:contain; max-width:100%;">`;
+                } else {
+                    logoCont.innerHTML = `<span style="color:red; font-size:10px;">URL Logo Mancante</span>`;
+                }
             } else {
-                let txt = getVal('Logo_Text', 'Menu');
+                let txt = getVal('Logo_Text', 'MENU');
                 let col = getVal('Logo_Text_Color', '#000');
                 let siz = getVal('Logo_Text_Size', '28px');
                 let fnt = getVal('Logo_Text_Font', 'sans-serif');
@@ -343,6 +407,13 @@
                 sub.innerText = getVal('Subtitle_Text', '');
                 sub.style.cssText = `color:${getVal('Subtitle_Color', '#6b7280')}; font-size:${getVal('Subtitle_Size', '14px')}; font-weight:${isTruthy('Subtitle_Bold', true, false) ? 'bold' : 'normal'}; margin-top:${getVal('Subtitle_Margin_Top', '10px')}; text-align:${getVal('Subtitle_Align', 'center')}; font-family:${getVal('Subtitle_Font', 'sans-serif')};`;
             }
+
+            const lvlSh = getShadow('Level_Title_Shadow', true);
+            const levelStyle = `color:${getVal('Level_Title_Color', '#4f46e5')}; font-size:${getVal('Level_Title_Size', '14px')}; font-weight:${isTruthy('Level_Title_Bold', true, true) ? 'bold' : 'normal'}; text-align:${getVal('Level_Title_Align', 'center')}; font-family:${getVal('Level_Title_Font', 'sans-serif')}; text-shadow: ${lvlSh}; margin-top: 8px; display: none;`;
+            document.getElementById('level-title-inside').style.cssText = levelStyle;
+            
+            const levelMarginB = getVal('Level_Title_Margin_Bottom', '25px');
+            document.getElementById('level-title-outside').style.cssText = levelStyle + ` margin-top: 0px; margin-bottom: ${levelMarginB};`; 
         }
 
         function autoAdjustPadding() {
@@ -364,19 +435,20 @@
 
                 let totalH = hHeight;
                 if(subHeader && subHeader.style.display !== 'none') totalH += subHeader.offsetHeight;
+                
                 if(mainContent) mainContent.style.paddingTop = `calc(${totalH}px + 20px)`;
             }, 50); 
         }
 
         async function fetchMenu() {
             const rString = Math.random().toString(36).substring(7);
-            const variants = ['Menu', 'menu', 'MENU', 'Piatto'];
+            const variants = ['Menu', 'menu', 'MENU', 'Piatto', 'Comida', 'Carta'];
             let csv = '';
 
             for(let v of variants) {
                 try {
                     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${v}&_t=${Date.now()}&_r=${rString}`;
-                    const res = await fetch(url);
+                    const res = await fetch(url, { headers: { 'Cache-Control': 'no-cache' } });
                     const text = await res.text();
                     if(text.toLowerCase().includes('macro')) {
                         csv = text;
@@ -385,7 +457,10 @@
                 } catch(e) {}
             }
 
-            if(!csv) return;
+            if(!csv) {
+                document.getElementById('loading-screen').innerHTML = "<div class='text-center pt-20 text-red-500 font-bold'>Errore: Scheda Menu non trovata.</div>"; 
+                return;
+            }
                 
             fullData = [];
             csv.split(/\r?\n/).forEach(row => {
@@ -396,14 +471,16 @@
                 fullData.push({
                     macro: c[0] || '', cat: c[1] || '', name: c[2] || '', desc: c[3] || '', 
                     allerg: c[4] || '', price: c[5] || '', gf: c[6] || '', vegan: c[7] || '', 
-                    veg: c[8] || '', noalc: c[9] || '', active: c[10] || 'TRUE', photoUrl: c[11] || '',
+                    veg: c[8] || '', noalc: c[9] || '', active: c[10] !== undefined ? c[10] : 'TRUE', photoUrl: c[11] || '',
                     ar: c[12] || '' 
                 });
             });
             
             fullData = fullData.filter(i => isTruthy(i.active, false, true)); 
             document.getElementById('loading-screen').style.display = 'none';
-            renderLevel1();
+            
+            if(fullData.length > 0) renderLevel1();
+            else document.getElementById('loading-screen').innerHTML = "<div class='text-center pt-20 text-gray-500 font-bold'>Nessun piatto attivo trovato nel Menu.</div>"; 
         }
 
         function renderLevel1() {
@@ -413,9 +490,10 @@
             layoutContainer.className = `page-content ${isGrid ? 'grid grid-cols-2 gap-4' : 'flex flex-col space-y-6'}`;
             layoutContainer.innerHTML = '';
 
+            const bgType = getVal('Macro_Bg_Type', 'image').toLowerCase();
+
             macros.forEach(m => {
                 let bgStyle = '';
-                const bgType = getVal('Macro_Bg_Type', 'color').toLowerCase();
                 if (bgType === 'color') {
                     bgStyle = `background: ${getVal('Macro_Bg_Color', '#cbd5e1')};`;
                 } else {
@@ -446,19 +524,23 @@
                 let bgStyle = '';
                 let overlayHTML = '';
                 let textClass = 'font-bold text-gray-800 text-lg relative z-10';
+                let iconClass = 'text-gray-400 shrink-0 ml-2 relative z-10';
+
                 if(showCatPhoto) {
                     const imgUrl = formatImgUrl(getVal(`Category_Img_${c}`, ''));
                     if(imgUrl) {
                         bgStyle = `background-image: url('${imgUrl}'); border: none;`;
                         overlayHTML = `<div class="cat-overlay"></div>`;
                         textClass = 'font-extrabold text-white text-lg relative z-10 text-shadow';
+                        iconClass = 'text-white shrink-0 ml-2 relative z-10';
                     }
                 }
+
                 container.innerHTML += `
                     <div onclick="renderLevel3('${mName.replace(/'/g, "\\'")}', '${c.replace(/'/g, "\\'")}')" class="menu-card cat-card flex justify-between items-center cursor-pointer mb-3" style="${bgStyle}">
                         ${overlayHTML}
                         <span class="${textClass}">${c}</span>
-                        <svg class="w-5 h-5 relative z-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+                        <svg class="w-5 h-5 ${iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                     </div>`;
             });
             navigationStack.push('page-categories');
@@ -515,23 +597,29 @@
                 if(isTruthy(i.veg, false, false)) badges += `<span class="bg-lime-100 text-lime-700 text-[10px] font-bold px-2 py-0.5 rounded-full mr-1 mt-1">Vegetariano</span>`;
                 
                 let descHTML = i.desc && i.desc !== '-' ? `<p class="item-desc">${i.desc}</p>` : '';
-                let arHTML = cleanString(i.ar) ? `<a href="${formatImgUrl(i.ar)}" target="_blank" class="ar-badge">VEDI AR</a>` : '';
-                const photoUrl = formatImgUrl(i.photoUrl);
+                let allergensHTML = i.allerg && i.allerg !== '-' ? `<span class="item-allerg">${i.allerg}</span>` : '';
+                
+                let arHTML = '';
+                const cleanArUrl = formatImgUrl(i.ar);
+                if (cleanArUrl) {
+                    arHTML = `<a href="${cleanArUrl}" target="_blank" class="ar-badge"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg> VEDI AR</a>`;
+                }
 
+                const photoUrl = formatImgUrl(i.photoUrl);
                 if (photoUrl) {
                     container.innerHTML += `
                         <div class="menu-card item-card flex justify-between items-stretch gap-4 mb-4">
                             <div class="flex flex-col flex-grow">
-                                <div><h3 class="item-name">${i.name}</h3>${descHTML}<div class="flex flex-wrap">${badges}</div>${arHTML}</div>
+                                <div><h3 class="item-name">${i.name}</h3>${descHTML}${allergensHTML}<div class="flex flex-wrap">${badges}</div>${arHTML}</div>
                                 <div class="mt-auto pt-3"><span class="item-price">${i.price}</span></div>
                             </div>
-                            <img src="${photoUrl}" alt="" class="item-photo shrink-0">
+                            <img src="${photoUrl}" alt="" class="item-photo shrink-0" onerror="this.style.display='none'">
                         </div>`;
                 } else {
                     container.innerHTML += `
                         <div class="menu-card item-card flex flex-col justify-center mb-4">
                             <div class="flex justify-between items-start gap-4"><h3 class="item-name flex-grow">${i.name}</h3><span class="item-price pl-2">${i.price}</span></div>
-                            ${descHTML}<div class="flex flex-wrap">${badges}</div>${arHTML}
+                            ${descHTML}${allergensHTML}<div class="flex flex-wrap">${badges}</div>${arHTML}
                         </div>`;
                 }
             });
