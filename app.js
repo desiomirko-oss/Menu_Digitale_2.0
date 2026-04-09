@@ -8,7 +8,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // Funzione per caricare il CSV esterno
-async function loadExternalCSV(url) {
+async function loadExternalCSV(https://docs.google.com/spreadsheets/d/e/2PACX-1vRZVourc8K5zUyaEPtAkjvD_gkByopMMQbMDUyJJu2IyF9YjgEjMOBZJHBrkOgvQCEDmxV6PmjwoRO9/pubhtml) {
     try {
         const response = await fetch(url);
         const csvString = await response.text();
