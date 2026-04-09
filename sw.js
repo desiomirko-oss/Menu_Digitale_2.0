@@ -1,21 +1,28 @@
-const CACHE_NAME = 'pwa-csv-v1';
-const ASSETS = [
-    '/',
-    '/index.html',
-    '/app.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js'
+const CACHE_NAME = 'menu-digitale-v1';
+const ASSETS_TO_CACHE = [
+  '/',
+  '/index.html',
+  '/style.css',
+  '/app.js',
+  '/manifest.json'
 ];
 
-self.addEventListener('install', (e) => {
-    e.waitUntil(
-        caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
-    );
+// Installa e salva in cache
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(ASSETS_TO_CACHE))
+  );
 });
 
-self.addEventListener('fetch', (e) => {
-    e.respondWith(
-        caches.match(e.request).then(response => {
-            return response || fetch(e.request);
-        })
+// Recupera dalla rete, usa cache come fallback (Network First)
+self.addEventListener('fetch', event => {
+    // Non cacha le API di Google Sheets per avere sempre il menu aggiornato
+    if (event.request.url.includes('docs.google.com')) {
+        return; 
+    }
+    
+    event.respondWith(
+        fetch(event.request).catch(() => caches.match(event.request))
     );
 });
