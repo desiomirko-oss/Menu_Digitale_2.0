@@ -54,18 +54,19 @@
             min-height: 100vh; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; margin: 0; overscroll-behavior-y: none; 
         }
 
+        /* HEADER PRINCIPALE (min-height per non schiacciare loghi grandi) */
         #main-header {
-            background: var(--header-bg); height: var(--header-h); 
+            background: var(--header-bg); min-height: var(--header-h); 
             position: fixed; top: 0; left: 0; width: 100%; z-index: 999;
             display: flex; flex-direction: column; justify-content: center;
             box-shadow: 0 4px 15px rgba(0,0,0,0.06); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-            padding: 0 20px; transition: all 0.3s ease; overflow: hidden;
+            padding: 10px 20px; transition: all 0.3s ease; overflow: hidden;
         }
         #header-content-wrapper { transition: padding-left 0.3s ease; width: 100%; }
 
         #sub-header {
             background: var(--header-bg); 
-            position: fixed; width: 100%; z-index: 998; top: var(--header-h); left: 0; display: none; 
+            position: fixed; width: 100%; z-index: 998; left: 0; display: none; 
             flex-direction: column; align-items: center; border-radius: 0; 
             box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             border-top: 1px solid rgba(0,0,0,0.05); transition: all 0.3s ease;
@@ -170,16 +171,34 @@
         let currentMacroName = '';
         let currentCategoryName = '';
 
-        // FUNZIONI DI PULIZIA E LETTURA DATI
-        function cleanString(val) {
-            if (val === undefined || val === null || val === '') return '';
-            const cleaned = String(val).replace(/^['"]|['"]$/g, '').trim();
-            if (cleaned.toLowerCase() === 'undefined' || cleaned === '-') return '';
-            return cleaned;
+        // --- 1. IL CONVERTITORE MAGICO PER GOOGLE DRIVE E DROPBOX ---
+        function formatImgUrl(url) {
+            if (!url) return '';
+            let formatted = String(url).trim();
+            // Converte i link Google Drive classici in link immagine diretti
+            const driveRegex = /drive\.google\.com\/file\/d\/([^\/]+)/;
+            const match = formatted.match(driveRegex);
+            if (match && match[1]) {
+                return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+            }
+            // Converte i link Google Drive open?id=
+            const openRegex = /drive\.google\.com\/open\?id=([^&]+)/;
+            const matchOpen = formatted.match(openRegex);
+            if (matchOpen && matchOpen[1]) {
+                return `https://drive.google.com/uc?export=view&id=${matchOpen[1]}`;
+            }
+            // Converte Dropbox
+            if (formatted.includes('dropbox.com') && formatted.includes('dl=0')) {
+                return formatted.replace('dl=0', 'raw=1');
+            }
+            return formatted;
         }
 
+        // SCANNER CASE-INSENSITIVE (Trova i parametri anche se scritti in minuscolo)
         function getVal(key, def) {
-            let v = appConfig[key] || appConfig[key + ',']; 
+            const lowerKey = key.toLowerCase();
+            const foundKey = Object.keys(appConfig).find(k => k.toLowerCase() === lowerKey);
+            let v = foundKey ? appConfig[foundKey] : undefined;
             if (v === undefined || v === null || v === '' || String(v).toLowerCase() === 'undefined' || v === '-') return def;
             return String(v).trim();
         }
@@ -187,7 +206,7 @@
         function isTruthy(keyOrValue, isConfigKey = true, defaultVal = true) {
             let v = isConfigKey ? getVal(keyOrValue, defaultVal ? 'TRUE' : 'FALSE') : (keyOrValue || '');
             v = String(v).toUpperCase().trim();
-            return ['TRUE', 'SI', 'SÌ', 'YES', '1', 'V', 'VERO'].includes(v);
+            return ['TRUE', 'SI', 'SÌ', 'YES', '1', 'V', 'VERO', 'ON', 'IMMAGINE', 'IMAGE'].includes(v);
         }
 
         function getShadow(type, isText = false) {
@@ -218,7 +237,6 @@
             return arr.map(x => x.replace(/^"|"$/g, '').trim());
         }
 
-        // INIZIALIZZAZIONE
         async function init() {
             if (!SHEET_ID) {
                 document.getElementById('loading-screen').innerHTML = "<div class='text-center pt-20 text-red-500 font-bold'>ID Cliente Mancante</div>";
@@ -230,7 +248,7 @@
         }
 
         async function fetchConfig() {
-            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=config&t=${Date.now()}`;
+            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=config&_t=${Date.now()}`;
             try {
                 const response = await fetch(url);
                 if(!response.ok) throw new Error("Network Error");
@@ -240,7 +258,12 @@
                     const cols = safeParseCSVRow(row);
                     if(cols.length >= 2 && cols[0] !== '') {
                         let key = cols[0].replace(/^"|"$/g, '').replace(/,+$/, '').trim(); 
-                        let val = cols[1] ? cols[1].replace(/^"|"$/g, '').replace(/;/g, ',').trim() : ''; 
+                        let val = cols[1] ? cols[1].replace(/^"|"$/g, '').trim() : ''; 
+                        
+                        // Ripara i colori rgba rovinati da Excel
+                        if(val.toLowerCase().includes('rgba') || val.toLowerCase().includes('rgb')) {
+                            val = val.replace(/;/g, ',');
+                        }
                         appConfig[key] = val;
                     }
                 });
@@ -250,10 +273,11 @@
         function applyConfig() {
             const root = document.documentElement;
             
+            // SFONDO E LOGO: Usa la funzione formatImgUrl per i link Cloud
             const bgType = getVal('Bg_Type', 'color').toLowerCase();
             root.style.setProperty('--app-bg', getVal('Bg_Color', '#f9fafb'));
-            if(bgType === 'image' && getVal('Bg_Image_URL', '') !== '') {
-                root.style.setProperty('--app-bg-img', `url('${getVal('Bg_Image_URL', '')}')`);
+            if(bgType.includes('imag') || bgType === 'img') {
+                root.style.setProperty('--app-bg-img', `url('${formatImgUrl(getVal('Bg_Image_URL', ''))}')`);
             } else {
                 root.style.setProperty('--app-bg-img', 'none');
             }
@@ -329,21 +353,21 @@
             root.style.setProperty('--flt-bg-a', getVal('Filter_BgColor_Active', '#4f46e5'));
             root.style.setProperty('--flt-c-a', getVal('Filter_TextColor_Active', '#ffffff'));
 
-            // LOGO DINAMICO CON CONTROLLI COMPLETI
+            // LOGO
             const logoCont = document.getElementById('logo-container');
             const logoType = getVal('Logo_Type', 'text').toLowerCase();
             const align = getVal('Logo_Align', 'center').toLowerCase();
             logoCont.innerHTML = ''; 
-            
-            // Imposta l'allineamento tramite flexbox
             logoCont.className = `w-full flex justify-${align === 'left' ? 'start' : align === 'right' ? 'end' : 'center'}`;
             
-            if (logoType === 'image' && getVal('Logo_Image_URL', '') !== '') {
-                // SE È IMMAGINE: Usa Logo_Image_Size per limitare l'altezza massima
-                const imgSize = getVal('Logo_Image_Size', '60px');
-                logoCont.innerHTML = `<img src="${getVal('Logo_Image_URL', '')}" style="max-height:${imgSize}; object-fit:contain;" onerror="this.style.display='none'">`;
+            const isLogoImg = logoType.includes('imag') || logoType.includes('immagin') || logoType === 'img';
+            const rawLogoUrl = getVal('Logo_Image_URL', '');
+            const logoUrl = formatImgUrl(rawLogoUrl); // CONVERSIONE DRIVE/DROPBOX IN CORSO
+
+            if (isLogoImg && logoUrl !== '') {
+                // Rimosso l'onerror hidden, così se c'è un errore si capisce
+                logoCont.innerHTML = `<img src="${logoUrl}" alt="Logo" style="max-height:${getVal('Logo_Image_Size', '60px')}; object-fit:contain; max-width:100%;">`;
             } else {
-                // SE È TESTO: Usa i font, i colori e le dimensioni
                 let txt = getVal('Logo_Text', 'Menu Digitale');
                 let col = getVal('Logo_Text_Color', '#000');
                 let siz = getVal('Logo_Text_Size', '28px');
@@ -352,7 +376,7 @@
                 logoCont.innerHTML = `<h1 style="color:${col}; font-size:${siz}; font-weight:${bld}; font-family:${fnt}; margin:0; line-height:1;">${txt}</h1>`;
             }
 
-            // Sottotitolo
+            // SOTTOTITOLO
             const sub = document.getElementById('subtitle-container');
             if(!isTruthy('Subtitle_Show', true, true)) {
                 sub.style.display = 'none';
@@ -368,30 +392,36 @@
             
             const levelMarginB = getVal('Level_Title_Margin_Bottom', '25px');
             document.getElementById('level-title-outside').style.cssText = levelStyle + ` margin-top: 0px; margin-bottom: ${levelMarginB};`; 
-            
-            const backBtn = document.getElementById('back-button');
-            const hHeight = parseInt(getVal('Header_Height', '120'));
-            const pos = getVal('Back_Btn_Position', 'center').toLowerCase();
-            if (pos === 'center') backBtn.style.top = `calc(${hHeight}px / 2 - 22px)`;
-            else if (pos === 'bottom') backBtn.style.top = `calc(${hHeight}px - 55px)`;
-            else if (pos === 'outside') backBtn.style.top = `calc(${hHeight}px + 15px)`;
         }
 
+        // GEOMETRIA FLUIDA
         function autoAdjustPadding() {
             setTimeout(() => {
                 const header = document.getElementById('main-header');
                 const subHeader = document.getElementById('sub-header');
                 const mainContent = document.getElementById('main-content');
-                let totalH = header.offsetHeight;
-                if(subHeader && subHeader.style.display !== 'none') {
-                    totalH += subHeader.offsetHeight;
+                const backBtn = document.getElementById('back-button');
+                
+                let hHeight = header ? header.offsetHeight : 0;
+                
+                if(subHeader) subHeader.style.top = hHeight + 'px';
+
+                if(backBtn) {
+                    const pos = getVal('Back_Btn_Position', 'center').toLowerCase();
+                    if (pos === 'center') backBtn.style.top = (hHeight / 2 - 22) + 'px';
+                    else if (pos === 'bottom') backBtn.style.top = (hHeight - 55) + 'px';
+                    else if (pos === 'outside') backBtn.style.top = (hHeight + 15) + 'px';
                 }
+
+                let totalH = hHeight;
+                if(subHeader && subHeader.style.display !== 'none') totalH += subHeader.offsetHeight;
+                
                 if(mainContent) mainContent.style.paddingTop = `calc(${totalH}px + 20px)`;
             }, 50); 
         }
 
         async function fetchMenu() {
-            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=menu&t=${Date.now()}`;
+            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=menu&_t=${Date.now()}`;
             try {
                 const response = await fetch(url);
                 if(!response.ok) throw new Error("Network Error");
@@ -414,7 +444,6 @@
                 }
                 
                 fullData = fullData.filter(i => isTruthy(i.active, false, true)); 
-                
                 document.getElementById('loading-screen').style.display = 'none';
                 renderLevel1();
             } catch (e) { 
@@ -438,7 +467,7 @@
                 if (bgType === 'color') {
                     bgStyle = `background: ${getVal('Macro_Bg_Color', '#cbd5e1')};`;
                 } else {
-                    const imgUrl = getVal(`Macro_Img_${m}`, '');
+                    const imgUrl = formatImgUrl(getVal(`Macro_Img_${m}`, ''));
                     if (imgUrl) bgStyle = `background-image: url('${imgUrl}');`;
                     else bgStyle = `background: ${getVal('Macro_Bg_Color', '#cbd5e1')};`;
                 }
@@ -446,9 +475,9 @@
                 const tPos = getVal('Macro_Text_Pos', 'center').toLowerCase(); 
                 let html = '';
                 if(tPos === 'outside') {
-                    html = `<div onclick="renderLevel2('${m.replace(/'/g, "\\'")}')" class="flex flex-col cursor-pointer"><div class="macro-card w-full" style="${bgStyle}"></div><span class="macro-text-outside text-center mt-2 font-bold uppercase tracking-wide text-sm">${m}</span></div>`;
+                    html = `<div onclick="renderLevel2('${m.replace(/'/g, "\\'")}')" class="flex flex-col cursor-pointer"><div class="macro-card w-full" style="${bgStyle}"></div><span class="macro-text-outside text-center mt-2 font-bold uppercase tracking-wide" style="line-height:1.2;">${m}</span></div>`;
                 } else {
-                    html = `<div onclick="renderLevel2('${m.replace(/'/g, "\\'")}')" class="macro-card w-full flex items-center justify-center cursor-pointer" style="${bgStyle}"><div class="macro-overlay"></div><span class="macro-text-inside relative z-10 font-extrabold uppercase tracking-widest text-center px-2">${m}</span></div>`;
+                    html = `<div onclick="renderLevel2('${m.replace(/'/g, "\\'")}')" class="macro-card w-full flex items-center justify-center cursor-pointer" style="${bgStyle}"><div class="macro-overlay"></div><span class="macro-text-inside relative z-10 font-extrabold uppercase tracking-widest text-center px-2" style="line-height:1.2;">${m}</span></div>`;
                 }
                 layoutContainer.innerHTML += html;
             });
@@ -469,7 +498,7 @@
                 let iconClass = 'text-gray-400 shrink-0 ml-2 relative z-10';
 
                 if(showCatPhoto) {
-                    const imgUrl = getVal(`Category_Img_${c}`, '');
+                    const imgUrl = formatImgUrl(getVal(`Category_Img_${c}`, ''));
                     if(imgUrl) {
                         bgStyle = `background-image: url('${imgUrl}'); border: none;`;
                         overlayHTML = `<div class="cat-overlay"></div>`;
@@ -561,17 +590,17 @@
                 if(isTruthy(i.vegan, false, false)) badges += `<span class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full mr-1 mt-1">Vegano</span>`;
                 if(isTruthy(i.veg, false, false)) badges += `<span class="bg-lime-100 text-lime-700 text-[10px] font-bold px-2 py-0.5 rounded-full mr-1 mt-1">Vegetariano</span>`;
                 
-                let allergensHTML = i.allerg && i.allerg !== '-' ? `<span class="item-allerg">Allergeni: ${i.allerg}</span>` : '';
+                let allergensHTML = i.allerg && i.allerg !== '-' ? `<span class="item-allerg">${i.allerg}</span>` : '';
                 let descHTML = i.desc && i.desc !== '-' ? `<p class="item-desc">${i.desc}</p>` : '';
                 let priceHTML = `<span class="item-price">${i.price}</span>`;
 
                 let arHTML = '';
-                const cleanArUrl = cleanString(i.ar);
+                const cleanArUrl = formatImgUrl(i.ar);
                 if (cleanArUrl) {
                     arHTML = `<a href="${cleanArUrl}" target="_blank" class="ar-badge"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg> VEDI AR</a>`;
                 }
 
-                const cleanPhotoUrl = cleanString(i.photoUrl);
+                const cleanPhotoUrl = formatImgUrl(i.photoUrl);
                 const hasPhoto = cleanPhotoUrl !== '';
 
                 if (hasPhoto) {
@@ -587,7 +616,7 @@
                                 </div>
                                 <div class="mt-auto pt-3">${priceHTML}</div>
                             </div>
-                            <img src="${cleanPhotoUrl}" alt="" onerror="this.style.display='none'" class="item-photo shrink-0">
+                            <img src="${cleanPhotoUrl}" alt="" class="item-photo shrink-0">
                         </div>`;
                 } else {
                     container.innerHTML += `
@@ -673,6 +702,7 @@
             }
         }
         
+        window.addEventListener('resize', autoAdjustPadding);
         init();
     </script>
 </body>
