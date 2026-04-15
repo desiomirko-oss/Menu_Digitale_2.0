@@ -115,7 +115,12 @@ body {
 .badge-vegan { background-color: #dcfce7; color: #15803d; }
 .badge-veg { background-color: #ecfccb; color: #4d7c0f; }
 
-.filter-container { display: flex; flex-direction: row; gap: 8px; overflow-x: auto; padding: 10px 20px 15px 20px; width: 100%; max-width: 28rem; white-space: nowrap; scrollbar-width: none; }
+/* FIX MARGINI FILTRO COLLEGATI AL CONFIG */
+.filter-container { 
+    display: flex; flex-direction: row; gap: 8px; overflow-x: auto; 
+    padding: var(--flt-mt) 20px var(--flt-mb) 20px; 
+    width: 100%; max-width: 28rem; white-space: nowrap; scrollbar-width: none; 
+}
 .filter-container::-webkit-scrollbar { display: none; }
 .filter-btn {
     font-family: var(--flt-f); font-size: var(--flt-s); font-weight: var(--flt-w);
