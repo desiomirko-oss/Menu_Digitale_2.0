@@ -8,7 +8,15 @@ let activeFilters = [];
 let currentMacroName = '';
 let currentCategoryName = '';
 
-// --- 1. FUNZIONI DI PULIZIA DATI DA EXCEL/CSV ---
+// --- SICUREZZA: PREVENZIONE XSS ---
+// Essenziale per evitare che l'HTML nei CSV venga eseguito dal browser
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag] || tag));
+}
+
 function cleanString(val) {
     if (val === undefined || val === null || val === '') return '';
     const cleaned = String(val).replace(/^['"]|['"]$/g, '').trim();
@@ -16,8 +24,9 @@ function cleanString(val) {
     return cleaned;
 }
 
+// --- LETTURA CONFIGURAZIONI ---
 function getVal(key, def) {
-    let v = appConfig[key];
+    let v = appConfig[key] || appConfig[key + ',']; 
     if (v === undefined || v === null || v === '' || String(v).toLowerCase() === 'undefined' || v === '-') return def;
     return String(v).trim();
 }
@@ -56,10 +65,10 @@ function safeParseCSVRow(str) {
     return arr.map(x => x.replace(/^"|"$/g, '').trim());
 }
 
-// --- 2. INIZIALIZZAZIONE E FETCH ---
+// --- INIZIALIZZAZIONE E FETCH DATI ---
 async function init() {
     if (!SHEET_ID) {
-        document.getElementById('loading-screen').innerHTML = "<div class='text-center pt-20 text-red-500 font-bold'>ID Cliente Mancante</div>";
+        document.getElementById('loading-screen').innerHTML = "<div class='text-error pt-20'>ID Cliente Mancante</div>";
         return;
     }
     await fetchConfig(); 
@@ -77,19 +86,18 @@ async function fetchConfig() {
             if(row.trim() === '') return;
             const cols = safeParseCSVRow(row);
             if(cols.length >= 2 && cols[0] !== '') {
-                // PULIZIA DELLE CHIAVI E DEI VALORI DA EXCEL
-                let key = cols[0].replace(/^"|"$/g, '').replace(/,+$/, '').trim(); // Toglie la virgola orfana
-                let val = cols[1] ? cols[1].replace(/^"|"$/g, '').replace(/;/g, ',').trim() : ''; // Fix punti e virgola in rgba
+                let key = cols[0].replace(/^"|"$/g, '').trim(); 
+                let val = cols[1] ? cols[1].replace(/^"|"$/g, '').replace(/;/g, ',').trim() : ''; 
                 appConfig[key] = val;
             }
         });
-    } catch(e) { console.error("Errore Configurazione:", e); }
+    } catch(e) { console.error("Errore Config:", e); }
 }
 
 function applyConfig() {
     const root = document.documentElement;
     
-    // SFONDO
+    // SFONDO GLOBALE
     const bgType = getVal('Bg_Type', 'color').toLowerCase();
     root.style.setProperty('--app-bg', getVal('Bg_Color', '#f9fafb'));
     if(bgType === 'image' && getVal('Bg_Image_URL', '') !== '') {
@@ -100,13 +108,14 @@ function applyConfig() {
     root.style.setProperty('--app-bg-size', getVal('Bg_Image_Size', 'cover'));
     root.style.setProperty('--app-bg-pos', getVal('Bg_Image_Pos', 'center'));
 
-    // HEADER & CARD
+    // COLORI E DIMENSIONI BASE
     root.style.setProperty('--header-bg', getVal('Header_BgColor', 'rgba(255, 255, 255, 0.95)'));
     root.style.setProperty('--header-h', getVal('Header_Height', '120px'));
     root.style.setProperty('--macro-h', getVal('Macro_Height', '180px'));
     root.style.setProperty('--back-bg', getVal('Back_Btn_Bg', 'rgba(255, 255, 255, 0.9)'));
     root.style.setProperty('--back-color', getVal('Back_Btn_Color', '#000'));
 
+    // CARDS
     let shadowVal = '0 10px 15px -3px rgba(0,0,0,0.1)'; 
     const shadowInt = getVal('Card_Shadow_Intensity', 'medium').toLowerCase();
     if(shadowInt === 'light') shadowVal = '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)';
@@ -121,16 +130,16 @@ function applyConfig() {
         root.style.setProperty('--menu-card-bg', getVal('Card_BgColor', '#ffffff')); root.style.setProperty('--menu-card-shadow', shadowVal); 
         root.style.setProperty('--menu-card-border', '1px solid rgba(0,0,0,0.03)'); root.style.setProperty('--menu-card-p', getVal('Card_Padding', '20px'));
     }
-    
     root.style.setProperty('--menu-card-r', getVal('Card_Radius', '24px'));
     root.style.setProperty('--cat-card-min-h', getVal('Category_Card_MinHeight', '80px'));
     root.style.setProperty('--item-card-min-h', getVal('Item_Card_MinHeight', '120px'));
 
+    // FOTO PIATTI
     root.style.setProperty('--i-photo-w', getVal('Item_Photo_Width', '110px'));
     root.style.setProperty('--i-photo-h', getVal('Item_Photo_Height', '110px'));
     root.style.setProperty('--i-photo-sh', getShadow('Item_Photo_Shadow', false));
 
-    // TIPOGRAFIA (Font e Colori ora mappano perfettamente le chiavi pulite)
+    // TIPOGRAFIA (Mappatura massiva)
     root.style.setProperty('--macro-t-f', getVal('Macro_Text_Font', 'sans-serif'));
     root.style.setProperty('--macro-t-c', getVal('Macro_Text_Color', '#ffffff'));
     root.style.setProperty('--macro-txt-sh', getShadow('Macro_Text_Shadow', true));
@@ -171,17 +180,20 @@ function applyConfig() {
     root.style.setProperty('--flt-bg-a', getVal('Filter_BgColor_Active', '#4f46e5'));
     root.style.setProperty('--flt-c-a', getVal('Filter_TextColor_Active', '#ffffff'));
 
-    // LOGO
+    // LOGO - Gestione allineamento via CSS puro
     const logoCont = document.getElementById('logo-container');
     const logoType = getVal('Logo_Type', 'text').toLowerCase();
     const align = getVal('Logo_Align', 'center').toLowerCase();
+    
+    logoCont.style.justifyContent = align === 'left' ? 'flex-start' : (align === 'right' ? 'flex-end' : 'center');
     logoCont.innerHTML = ''; 
-    logoCont.className = `w-full flex justify-${align === 'left' ? 'start' : align === 'right' ? 'end' : 'center'}`;
     
     if (logoType === 'image' && getVal('Logo_Image_URL', '') !== '') {
-        logoCont.innerHTML = `<img src="${getVal('Logo_Image_URL', '')}" style="max-height:${getVal('Logo_Image_Size', '60px')}; object-fit:contain;" onerror="this.style.display='none'">`;
+        const url = escapeHTML(getVal('Logo_Image_URL', ''));
+        logoCont.innerHTML = `<img src="${url}" style="max-height:${escapeHTML(getVal('Logo_Image_Size', '60px'))}; object-fit:contain;" alt="Logo Menu">`;
     } else {
-        logoCont.innerHTML = `<h1 style="color:${getVal('Logo_Text_Color', '#000')}; font-size:${getVal('Logo_Text_Size', '28px')}; font-weight:${isTruthy('Logo_Text_Bold', true, true) ? 'bold' : 'normal'}; margin:0; line-height:1; font-family:${getVal('Logo_Text_Font', 'sans-serif')};">${getVal('Logo_Text', 'Menu Digitale')}</h1>`;
+        const text = escapeHTML(getVal('Logo_Text', 'Menu'));
+        logoCont.innerHTML = `<h1 style="color:${getVal('Logo_Text_Color', '#000')}; font-size:${getVal('Logo_Text_Size', '28px')}; font-weight:${isTruthy('Logo_Text_Bold', true, true) ? 'bold' : 'normal'}; margin:0; line-height:1; font-family:${getVal('Logo_Text_Font', 'sans-serif')};">${text}</h1>`;
     }
 
     // SOTTOTITOLO
@@ -190,10 +202,11 @@ function applyConfig() {
         sub.style.display = 'none';
     } else {
         sub.style.display = 'block'; 
-        sub.innerText = getVal('Subtitle_Text', '');
+        sub.textContent = getVal('Subtitle_Text', ''); // textContent previene XSS
         sub.style.cssText = `color:${getVal('Subtitle_Color', '#6b7280')}; font-size:${getVal('Subtitle_Size', '14px')}; font-weight:${isTruthy('Subtitle_Bold', true, false) ? 'bold' : 'normal'}; margin-top:${getVal('Subtitle_Margin_Top', '10px')}; text-align:${getVal('Subtitle_Align', 'center')}; font-family:${getVal('Subtitle_Font', 'sans-serif')};`;
     }
 
+    // TITOLI DI LIVELLO
     const lvlSh = getShadow('Level_Title_Shadow', true);
     const levelStyle = `color:${getVal('Level_Title_Color', '#4f46e5')}; font-size:${getVal('Level_Title_Size', '14px')}; font-weight:${isTruthy('Level_Title_Bold', true, true) ? 'bold' : 'normal'}; text-align:${getVal('Level_Title_Align', 'center')}; font-family:${getVal('Level_Title_Font', 'sans-serif')}; text-shadow: ${lvlSh}; margin-top: 8px; display: none;`;
     document.getElementById('level-title-inside').style.cssText = levelStyle;
@@ -201,6 +214,7 @@ function applyConfig() {
     const levelMarginB = getVal('Level_Title_Margin_Bottom', '25px');
     document.getElementById('level-title-outside').style.cssText = levelStyle + ` margin-top: 0px; margin-bottom: ${levelMarginB};`; 
     
+    // TASTO BACK
     const backBtn = document.getElementById('back-button');
     const hHeight = parseInt(getVal('Header_Height', '120'));
     const pos = getVal('Back_Btn_Position', 'center').toLowerCase();
@@ -209,6 +223,7 @@ function applyConfig() {
     else if (pos === 'outside') backBtn.style.top = `calc(${hHeight}px + 15px)`;
 }
 
+// CALCOLO MARGINI HEADER DINAMICO
 function autoAdjustPadding() {
     setTimeout(() => {
         const header = document.getElementById('main-header');
@@ -222,7 +237,7 @@ function autoAdjustPadding() {
     }, 50); 
 }
 
-// --- 3. FETCH E RENDER DEL MENU (INCLUDE AR) ---
+// --- LOGICA RENDER E NAVIGAZIONE ---
 async function fetchMenu() {
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=menu&t=${Date.now()}`;
     try {
@@ -239,23 +254,22 @@ async function fetchMenu() {
             if(c.length < 3 || !c[0]) continue;
             
             fullData.push({
-                macro: c[0] || '', cat: c[1] || '', name: c[2] || '', desc: c[3] || '', 
-                allerg: c[4] || '', price: c[5] || '', gf: c[6] || '', vegan: c[7] || '', 
-                veg: c[8] || '', noalc: c[9] || '', 
-                active: c[10] !== undefined ? c[10] : 'TRUE', 
-                photoUrl: c[11] || '', 
-                ar: c[12] || '' // COLONNA M DEL FOGLIO (13esima posizione)
+                macro: cleanString(c[0]), cat: cleanString(c[1]), name: cleanString(c[2]), 
+                desc: cleanString(c[3]), allerg: cleanString(c[4]), price: cleanString(c[5]), 
+                gf: cleanString(c[6]), vegan: cleanString(c[7]), veg: cleanString(c[8]), 
+                noalc: cleanString(c[9]), active: c[10] !== undefined ? c[10] : 'TRUE', 
+                photoUrl: cleanString(c[11]), ar: cleanString(c[12]) 
             });
         }
         
-        // Riconosce i SI del tuo foglio come Elementi Attivi
-        fullData = fullData.filter(i => isTruthy(i.active, false, true)); 
-        
-        document.getElementById('loading-screen').style.display = 'none';
+        fullData = fullData.filter(i => isTruthy(i.active, false)); 
+        document.getElementById('loading-screen').classList.add('hidden');
         renderLevel1();
     } catch (e) { 
         console.error(e);
-        document.getElementById('loading-screen').innerHTML = "<div class='text-center pt-20 text-red-500 font-bold'>Menu non trovato o in manutenzione.</div>"; 
+        const lScreen = document.getElementById('loading-screen');
+        lScreen.innerHTML = "<div class='text-error pt-20'>Menu non trovato o in manutenzione.</div>"; 
+        lScreen.classList.remove('hidden');
     }
 }
 
@@ -264,7 +278,7 @@ function renderLevel1() {
     const macros = [...new Set(fullData.map(i => i.macro))];
     
     const isGrid = getVal('Macro_Layout', 'grid').toLowerCase() === 'grid';
-    layoutContainer.className = `page-content ${isGrid ? 'grid grid-cols-2 gap-4' : 'flex flex-col space-y-6'}`;
+    layoutContainer.className = `page-content ${isGrid ? 'macro-grid' : 'macro-list'}`;
     layoutContainer.innerHTML = '';
 
     const bgType = getVal('Macro_Bg_Type', 'image').toLowerCase();
@@ -274,18 +288,20 @@ function renderLevel1() {
         if (bgType === 'color') {
             bgStyle = `background: ${getVal('Macro_Bg_Color', '#cbd5e1')};`;
         } else {
-            // Nota che il tuo config usa nomi esatti "Macro_Img_CIBO" e "Macro_Img_BEVANDA"
             const imgUrl = getVal(`Macro_Img_${m}`, '');
-            if (imgUrl) bgStyle = `background-image: url('${imgUrl}');`;
+            if (imgUrl) bgStyle = `background-image: url('${escapeHTML(imgUrl)}');`;
             else bgStyle = `background: ${getVal('Macro_Bg_Color', '#cbd5e1')};`;
         }
 
         const tPos = getVal('Macro_Text_Pos', 'center').toLowerCase(); 
+        const safeName = escapeHTML(m);
+        const argName = safeName.replace(/'/g, "\\'"); // Escaping JS per l'onclick
+        
         let html = '';
         if(tPos === 'outside') {
-            html = `<div onclick="renderLevel2('${m.replace(/'/g, "\\'")}')" class="flex flex-col cursor-pointer"><div class="macro-card w-full" style="${bgStyle}"></div><span class="macro-text-outside text-center mt-2 font-bold uppercase tracking-wide text-sm">${m}</span></div>`;
+            html = `<div onclick="renderLevel2('${argName}')" class="flex-col"><div class="macro-card w-full" style="${bgStyle}"></div><span class="macro-text-outside">${safeName}</span></div>`;
         } else {
-            html = `<div onclick="renderLevel2('${m.replace(/'/g, "\\'")}')" class="macro-card w-full flex items-center justify-center cursor-pointer" style="${bgStyle}"><div class="macro-overlay"></div><span class="macro-text-inside relative z-10 font-extrabold text-xl uppercase tracking-widest">${m}</span></div>`;
+            html = `<div onclick="renderLevel2('${argName}')" class="macro-card w-full flex items-center justify-center" style="${bgStyle}"><div class="macro-overlay"></div><span class="macro-text-inside">${safeName}</span></div>`;
         }
         layoutContainer.innerHTML += html;
     });
@@ -302,50 +318,49 @@ function renderLevel2(mName) {
     cats.forEach(c => {
         let bgStyle = '';
         let overlayHTML = '';
-        let textClass = 'font-bold text-gray-800 text-lg relative z-10';
-        let iconClass = 'text-gray-400 shrink-0 ml-2 relative z-10';
+        let textStyle = 'font-weight: 800; color: #1f2937; font-size: 1.125rem; position: relative; z-index: 10;';
+        let iconClass = 'text-gray-400';
 
         if(showCatPhoto) {
             const imgUrl = getVal(`Category_Img_${c}`, '');
             if(imgUrl) {
-                bgStyle = `background-image: url('${imgUrl}'); border: none;`;
+                bgStyle = `background-image: url('${escapeHTML(imgUrl)}'); border: none;`;
                 overlayHTML = `<div class="cat-overlay"></div>`;
-                textClass = 'font-extrabold text-white text-lg relative z-10 text-shadow';
-                iconClass = 'text-white shrink-0 ml-2 relative z-10';
+                textStyle = 'font-weight: 900; color: #ffffff; font-size: 1.125rem; position: relative; z-index: 10; text-shadow: 0 2px 4px rgba(0,0,0,0.5);';
+                iconClass = 'text-white';
             }
         }
 
+        const safeCat = escapeHTML(c);
+        const argMacro = escapeHTML(mName).replace(/'/g, "\\'");
+        const argCat = safeCat.replace(/'/g, "\\'");
+
         container.innerHTML += `
-            <div onclick="renderLevel3('${mName.replace(/'/g, "\\'")}', '${c.replace(/'/g, "\\'")}')" class="menu-card cat-card flex justify-between items-center cursor-pointer mb-3" style="${bgStyle}">
+            <div onclick="renderLevel3('${argMacro}', '${argCat}')" class="menu-card cat-card" style="${bgStyle}">
                 ${overlayHTML}
-                <span class="${textClass}">${c}</span>
-                <svg class="w-5 h-5 ${iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                <span style="${textStyle}">${safeCat}</span>
+                <svg class="icon-sm shrink-0 ml-2 relative z-10" style="color: ${iconClass === 'text-white' ? '#fff' : '#9ca3af'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </div>`;
     });
     navigationStack.push('page-categories');
     showPage('page-categories', mName);
 }
 
-// --- 4. LOGICA FILTRI E AR (RADIO BUTTON) ---
 function toggleFilter(filterType) {
-    // Spegne se già cliccato, accende se nuovo (Radio Esclusivo)
-    if (activeFilters.includes(filterType)) {
-        activeFilters = [];
-    } else {
-        activeFilters = [filterType];
-    }
+    if (activeFilters.includes(filterType)) activeFilters = [];
+    else activeFilters = [filterType];
     
     const btns = document.getElementById('sub-header-filters').querySelectorAll('.filter-btn');
     btns.forEach(btn => {
         btn.classList.remove('active');
         if(activeFilters.length > 0) {
             const f = activeFilters[0];
-            const txt = btn.innerText.toLowerCase();
+            const txt = btn.textContent.toLowerCase();
             const isMatch = (f === 'gf' && txt.includes('glutine')) || 
                             (f === 'vegan' && txt.includes('vegano')) || 
                             (f === 'veg' && txt.includes('vegetariano')) || 
                             (f === 'noalc' && txt.includes('analcolico'));
-            if(isMatch) btn.classList.add('active'); // Il CSS cambia colore all'istante
+            if(isMatch) btn.classList.add('active');
         }
     });
     renderLevel3(currentMacroName, currentCategoryName, true);
@@ -355,7 +370,7 @@ function renderLevel3(mName, cName, isFiltering = false) {
     currentMacroName = mName; currentCategoryName = cName;
     
     if (!isFiltering) {
-        document.getElementById('sub-header-title').innerText = cName;
+        document.getElementById('sub-header-title').textContent = cName;
         const filterContainer = document.getElementById('sub-header-filters');
         filterContainer.innerHTML = '';
 
@@ -378,14 +393,13 @@ function renderLevel3(mName, cName, isFiltering = false) {
     
     let items = fullData.filter(i => i.cat === cName && i.macro === mName);
     
-    // FILTRA I DATI INTERCETTANDO IL TUO "SI"
     if (activeFilters.length > 0) {
         items = items.filter(i => {
             return activeFilters.every(f => {
-                if(f === 'gf') return isTruthy(i.gf, false, false);
-                if(f === 'vegan') return isTruthy(i.vegan, false, false);
-                if(f === 'veg') return isTruthy(i.veg, false, false);
-                if(f === 'noalc') return isTruthy(i.noalc, false, false);
+                if(f === 'gf') return isTruthy(i.gf, false);
+                if(f === 'vegan') return isTruthy(i.vegan, false);
+                if(f === 'veg') return isTruthy(i.veg, false);
+                if(f === 'noalc') return isTruthy(i.noalc, false);
                 return true;
             });
         });
@@ -396,50 +410,55 @@ function renderLevel3(mName, cName, isFiltering = false) {
     }
 
     items.forEach(i => {
-        let badges = '';
-        if(isTruthy(i.gf, false, false)) badges += `<span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full mr-1 mt-1">Senza Glutine</span>`;
-        if(isTruthy(i.vegan, false, false)) badges += `<span class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full mr-1 mt-1">Vegano</span>`;
-        if(isTruthy(i.veg, false, false)) badges += `<span class="bg-lime-100 text-lime-700 text-[10px] font-bold px-2 py-0.5 rounded-full mr-1 mt-1">Vegetariano</span>`;
-        
-        let allergensHTML = i.allerg && i.allerg !== '-' ? `<span class="item-allerg">Allergeni: ${i.allerg}</span>` : '';
-        let descHTML = i.desc && i.desc !== '-' ? `<p class="item-desc">${i.desc}</p>` : '';
-        let priceHTML = `<span class="item-price">${i.price}</span>`;
+        // Sanificazione totale delle stringhe
+        const safeName = escapeHTML(i.name);
+        const safeDesc = escapeHTML(i.desc);
+        const safeAllerg = escapeHTML(i.allerg);
+        const safePrice = escapeHTML(i.price);
+        const safeAr = escapeHTML(i.ar);
+        const safePhoto = escapeHTML(i.photoUrl);
 
-        // INIEZIONE PULSANTE AR
+        let badges = '';
+        if(isTruthy(i.gf, false)) badges += `<span class="badge badge-gf">Senza Glutine</span>`;
+        if(isTruthy(i.vegan, false)) badges += `<span class="badge badge-vegan">Vegano</span>`;
+        if(isTruthy(i.veg, false)) badges += `<span class="badge badge-veg">Vegetariano</span>`;
+        
+        let allergensHTML = safeAllerg && safeAllerg !== '-' ? `<span class="item-allerg">Allergeni: ${safeAllerg}</span>` : '';
+        let descHTML = safeDesc && safeDesc !== '-' ? `<p class="item-desc">${safeDesc}</p>` : '';
+        let priceHTML = `<span class="item-price">${safePrice}</span>`;
+
         let arHTML = '';
-        const cleanArUrl = cleanString(i.ar);
-        if (cleanArUrl) {
-            arHTML = `<a href="${cleanArUrl}" target="_blank" class="ar-badge"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg> VEDI AR</a>`;
+        if (safeAr) {
+            arHTML = `<a href="${safeAr}" target="_blank" rel="noopener noreferrer" class="ar-badge"><svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg> VEDI AR</a>`;
         }
 
-        const cleanPhotoUrl = cleanString(i.photoUrl);
-        const hasPhoto = cleanPhotoUrl !== '';
+        const hasPhoto = safePhoto !== '';
 
         if (hasPhoto) {
             container.innerHTML += `
-                <div class="menu-card item-card flex justify-between items-stretch gap-4 mb-4">
-                    <div class="flex flex-col flex-grow">
+                <div class="menu-card item-card">
+                    <div class="flex-col flex-grow">
                         <div>
-                            <h3 class="item-name">${i.name}</h3>
+                            <h3 class="item-name">${safeName}</h3>
                             ${descHTML}
                             ${allergensHTML}
-                            <div class="flex flex-wrap">${badges}</div>
+                            <div class="badge-container">${badges}</div>
                             ${arHTML}
                         </div>
-                        <div class="mt-auto pt-3">${priceHTML}</div>
+                        <div style="margin-top: auto; padding-top: 12px;">${priceHTML}</div>
                     </div>
-                    <img src="${cleanPhotoUrl}" alt="" onerror="this.style.display='none'" class="item-photo shrink-0">
+                    <img src="${safePhoto}" alt="${safeName}" onerror="this.style.display='none'" class="item-photo">
                 </div>`;
         } else {
             container.innerHTML += `
-                <div class="menu-card item-card flex flex-col justify-center mb-4">
-                    <div class="flex justify-between items-start gap-4">
-                        <h3 class="item-name flex-grow">${i.name}</h3>
-                        <div class="shrink-0 text-right pl-2">${priceHTML}</div>
+                <div class="menu-card item-card flex-col" style="display: flex; flex-direction: column; justify-content: center;">
+                    <div class="flex justify-between" style="align-items: flex-start;">
+                        <h3 class="item-name flex-grow">${safeName}</h3>
+                        <div class="shrink-0" style="text-align: right; padding-left: 8px;">${priceHTML}</div>
                     </div>
                     ${descHTML}
                     ${allergensHTML}
-                    <div class="flex flex-wrap">${badges}</div>
+                    <div class="badge-container">${badges}</div>
                     ${arHTML}
                 </div>`;
         }
@@ -454,12 +473,12 @@ function renderLevel3(mName, cName, isFiltering = false) {
 function showPage(p, levelTitle = '') {
     if(p !== 'page-items') activeFilters = [];
 
-    document.getElementById('page-macro').style.display = 'none';
-    document.getElementById('page-categories').style.display = 'none';
-    document.getElementById('page-items').style.display = 'none';
-    document.getElementById(p).style.display = 'block';
+    document.getElementById('page-macro').classList.add('hidden');
+    document.getElementById('page-categories').classList.add('hidden');
+    document.getElementById('page-items').classList.add('hidden');
+    document.getElementById(p).classList.remove('hidden');
     
-    const contentDiv = document.querySelector(`#${p} .page-content`) || document.getElementById(p);
+    const contentDiv = document.querySelector(`#${p}`);
     if(contentDiv) {
         contentDiv.style.animation = 'none'; contentDiv.offsetHeight; 
         contentDiv.style.animation = 'pageIn 0.3s ease-out forwards';
@@ -472,7 +491,7 @@ function showPage(p, levelTitle = '') {
     const wrapper = document.getElementById('header-content-wrapper');
     const align = getVal('Logo_Align', 'center').toLowerCase();
     
-    titleInside.style.display = 'none'; titleOutside.style.display = 'none';
+    titleInside.classList.add('hidden'); titleOutside.classList.add('hidden');
 
     if(p === 'page-macro') {
         backBtn.classList.remove('active');
@@ -489,9 +508,11 @@ function showPage(p, levelTitle = '') {
             subHeader.style.display = 'none';
             if(isTruthy('Level_Title_Show', true, true)) {
                 if(getVal('Level_Title_Position', 'inside').toLowerCase() === 'outside') {
-                    titleOutside.style.display = 'block'; titleOutside.innerText = levelTitle;
+                    titleOutside.classList.remove('hidden'); 
+                    titleOutside.textContent = levelTitle; // XSS Safe
                 } else {
-                    titleInside.style.display = 'block'; titleInside.innerText = levelTitle;
+                    titleInside.classList.remove('hidden'); 
+                    titleInside.textContent = levelTitle; // XSS Safe
                 }
             }
         }
@@ -507,7 +528,7 @@ function goBack() {
         const prev = navigationStack[navigationStack.length-1];
         let titleToRestore = '';
         if(prev === 'page-categories') {
-            const firstMatch = fullData.find(i => i.cat === document.getElementById('sub-header-title').innerText);
+            const firstMatch = fullData.find(i => i.cat === document.getElementById('sub-header-title').textContent);
             if(firstMatch) titleToRestore = firstMatch.macro;
         }
         showPage(prev, titleToRestore);
