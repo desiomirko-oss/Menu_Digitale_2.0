@@ -3,7 +3,11 @@
 
 :root {
     --app-bg: #f9fafb; --app-bg-img: none; --app-bg-size: cover; --app-bg-pos: center;
-    --header-bg: rgba(255, 255, 255, 0.95); --header-h: 120px;
+    
+    /* VARIABILI HEADER CONTROLLATE DA CONFIG */
+    --header-bg: rgba(255, 255, 255, 0.95); 
+    --header-shadow: 0 4px 15px rgba(0,0,0,0.06); 
+    
     --back-bg: rgba(255, 255, 255, 0.9); --back-color: #4f46e5; --macro-h: 180px;
     --card-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); 
     --menu-card-bg: #ffffff; --menu-card-p: 20px; --menu-card-r: 24px;
@@ -22,6 +26,7 @@
     --flt-f: sans-serif; --flt-s: 11px; --flt-w: bold;
     --flt-bg-i: #f3f4f6; --flt-c-i: #9ca3af;
     --flt-bg-a: #4f46e5; --flt-c-a: #ffffff;
+    --flt-mt: 10px; --flt-mb: 15px;
 }
 
 body {
@@ -34,11 +39,12 @@ body {
     overscroll-behavior-y: none; color: #333;
 }
 
-/* UTILITY CLASSES (Ex-Tailwind) */
+/* UTILITY CLASSES */
 .hidden { display: none !important; }
 .container { max-width: 28rem; margin: 0 auto; padding-left: 1.25rem; padding-right: 1.25rem; padding-bottom: 2.5rem; position: relative; }
 .flex { display: flex; }
 .flex-col { display: flex; flex-direction: column; }
+.flex-center-col { display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .items-center { align-items: center; }
 .justify-between { justify-content: space-between; }
 .justify-center { justify-content: center; }
@@ -53,23 +59,21 @@ body {
 .icon-sm { width: 1.25rem; height: 1.25rem; }
 .text-center { text-align: center; }
 
-/* LAYOUT HEADER */
+/* LAYOUT HEADER ADATTIVO */
 #main-header {
     background: var(--header-bg); 
-    min-height: 100px; /* L'header ora può crescere! */
+    min-height: 100px; /* Cresce se il logo è grande */
     box-shadow: var(--header-shadow); 
     position: fixed; top: 0; left: 0; width: 100%; z-index: 999;
     display: flex; flex-direction: column; justify-content: center;
     backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-    padding: 15px 20px; /* Padding verticale per non far toccare i bordi al logo */
-    transition: all 0.3s ease; overflow: hidden;
+    padding: 15px 20px; transition: all 0.3s ease; overflow: hidden;
 }
 #header-content-wrapper { transition: padding-left 0.3s ease; width: 100%; }
 #logo-container { width: 100%; display: flex; align-items: center; }
 .level-title { letter-spacing: 0.1em; text-transform: uppercase; }
 
 #sub-header {
-    /* Ho rimosso 'top: 100px;', ora lo calcola JavaScript dinamicamente */
     background: var(--header-bg); position: fixed; width: 100%; z-index: 998; left: 0; display: none; 
     flex-direction: column; align-items: center; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); 
     backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid rgba(0,0,0,0.05); transition: all 0.3s ease;
@@ -95,7 +99,7 @@ body {
 
 .macro-text-inside, .macro-text-outside { font-family: var(--macro-t-f) !important; color: var(--macro-t-c) !important; text-shadow: var(--macro-txt-sh) !important; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; }
 .macro-text-inside { font-size: 1.25rem; position: relative; z-index: 10; }
-.macro-text-outside { font-size: 0.875rem; text-align: center; margin-top: 0.5rem; display: block; color: #1f2937 !important; } /* Sovrascrive il bianco se fuori */
+.macro-text-outside { font-size: 0.875rem; text-align: center; margin-top: 0.5rem; display: block; color: #1f2937 !important; } 
 
 .menu-card {
     background-color: var(--menu-card-bg); padding: var(--menu-card-p); border-radius: var(--menu-card-r); 
@@ -119,7 +123,6 @@ body {
 .badge-vegan { background-color: #dcfce7; color: #15803d; }
 .badge-veg { background-color: #ecfccb; color: #4d7c0f; }
 
-/* FIX MARGINI FILTRO COLLEGATI AL CONFIG */
 .filter-container { 
     display: flex; flex-direction: row; gap: 8px; overflow-x: auto; 
     padding: var(--flt-mt) 20px var(--flt-mb) 20px; 
@@ -143,4 +146,3 @@ body {
 .loader { border: 3px solid #f3f3f3; border-top: 3px solid var(--back-color); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 .text-error { color: #ef4444; font-weight: bold; text-align: center; }
-.loading-label { color: #9ca3af; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.5rem; }
