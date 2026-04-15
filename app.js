@@ -8,13 +8,17 @@ let activeFilters = [];
 let currentMacroName = '';
 let currentCategoryName = '';
 
-// --- SICUREZZA: PREVENZIONE XSS ---
-// Essenziale per evitare che l'HTML nei CSV venga eseguito dal browser
+// --- SICUREZZA: PREVENZIONE XSS & JS ---
 function escapeHTML(str) {
     if (str === null || str === undefined) return '';
     return String(str).replace(/[&<>'"]/g, tag => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
     }[tag] || tag));
+}
+
+function escapeJS(str) {
+    if (!str) return '';
+    return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
 }
 
 function cleanString(val) {
@@ -26,9 +30,18 @@ function cleanString(val) {
 
 // --- LETTURA CONFIGURAZIONI ---
 function getVal(key, def) {
-    let v = appConfig[key] || appConfig[key + ',']; 
+    let v = appConfig[key];
     if (v === undefined || v === null || v === '' || String(v).toLowerCase() === 'undefined' || v === '-') return def;
     return String(v).trim();
+}
+
+// Funzione intelligente per le foto: trova la chiave anche se le maiuscole non combaciano
+function getDynamicVal(prefix, suffix, def) {
+    const searchKey = `${prefix}${suffix}`.toLowerCase();
+    for (let k in appConfig) {
+        if (k.toLowerCase() === searchKey) return getVal(k, def);
+    }
+    return def;
 }
 
 function isTruthy(keyOrValue, isConfigKey = true, defaultVal = true) {
@@ -86,9 +99,10 @@ async function fetchConfig() {
             if(row.trim() === '') return;
             const cols = safeParseCSVRow(row);
             if(cols.length >= 2 && cols[0] !== '') {
-                let key = cols[0].replace(/^"|"$/g, '').trim(); 
+                // IL FIX PRINCIPALE: pulisce le chiavi rimuovendo sia virgolette che virgole extra
+                let key = cols[0].replace(/^"|"$/g, '').replace(/,+$/, '').trim(); 
                 let val = cols[1] ? cols[1].replace(/^"|"$/g, '').replace(/;/g, ',').trim() : ''; 
-                appConfig[key] = val;
+                if(key) appConfig[key] = val;
             }
         });
     } catch(e) { console.error("Errore Config:", e); }
@@ -108,14 +122,12 @@ function applyConfig() {
     root.style.setProperty('--app-bg-size', getVal('Bg_Image_Size', 'cover'));
     root.style.setProperty('--app-bg-pos', getVal('Bg_Image_Pos', 'center'));
 
-    // COLORI E DIMENSIONI BASE
     root.style.setProperty('--header-bg', getVal('Header_BgColor', 'rgba(255, 255, 255, 0.95)'));
     root.style.setProperty('--header-h', getVal('Header_Height', '120px'));
     root.style.setProperty('--macro-h', getVal('Macro_Height', '180px'));
     root.style.setProperty('--back-bg', getVal('Back_Btn_Bg', 'rgba(255, 255, 255, 0.9)'));
     root.style.setProperty('--back-color', getVal('Back_Btn_Color', '#000'));
 
-    // CARDS
     let shadowVal = '0 10px 15px -3px rgba(0,0,0,0.1)'; 
     const shadowInt = getVal('Card_Shadow_Intensity', 'medium').toLowerCase();
     if(shadowInt === 'light') shadowVal = '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)';
@@ -134,12 +146,10 @@ function applyConfig() {
     root.style.setProperty('--cat-card-min-h', getVal('Category_Card_MinHeight', '80px'));
     root.style.setProperty('--item-card-min-h', getVal('Item_Card_MinHeight', '120px'));
 
-    // FOTO PIATTI
     root.style.setProperty('--i-photo-w', getVal('Item_Photo_Width', '110px'));
     root.style.setProperty('--i-photo-h', getVal('Item_Photo_Height', '110px'));
     root.style.setProperty('--i-photo-sh', getShadow('Item_Photo_Shadow', false));
 
-    // TIPOGRAFIA (Mappatura massiva)
     root.style.setProperty('--macro-t-f', getVal('Macro_Text_Font', 'sans-serif'));
     root.style.setProperty('--macro-t-c', getVal('Macro_Text_Color', '#ffffff'));
     root.style.setProperty('--macro-txt-sh', getShadow('Macro_Text_Shadow', true));
@@ -171,16 +181,17 @@ function applyConfig() {
     root.style.setProperty('--i-pric-w', isTruthy('Item_Price_Bold', true, true) ? 'bold' : 'normal');
     root.style.setProperty('--i-pric-sh', getShadow('Item_Price_Shadow', true));
     
-    // FILTRI
     root.style.setProperty('--flt-f', getVal('Filter_Font', 'sans-serif'));
     root.style.setProperty('--flt-s', getVal('Filter_Size', '11px'));
     root.style.setProperty('--flt-w', isTruthy('Filter_Bold', true, true) ? 'bold' : 'normal');
+    root.style.setProperty('--flt-mt', getVal('Filter_Margin_Top', '10px'));
+    root.style.setProperty('--flt-mb', getVal('Filter_Margin_Bottom', '15px'));
     root.style.setProperty('--flt-bg-i', getVal('Filter_BgColor_Inactive', '#f3f4f6'));
     root.style.setProperty('--flt-c-i', getVal('Filter_TextColor_Inactive', '#9ca3af'));
     root.style.setProperty('--flt-bg-a', getVal('Filter_BgColor_Active', '#4f46e5'));
     root.style.setProperty('--flt-c-a', getVal('Filter_TextColor_Active', '#ffffff'));
 
-    // LOGO - Gestione allineamento via CSS puro
+    // LOGO - Gestione Sicura e Allineata
     const logoCont = document.getElementById('logo-container');
     const logoType = getVal('Logo_Type', 'text').toLowerCase();
     const align = getVal('Logo_Align', 'center').toLowerCase();
@@ -193,7 +204,7 @@ function applyConfig() {
         logoCont.innerHTML = `<img src="${url}" style="max-height:${escapeHTML(getVal('Logo_Image_Size', '60px'))}; object-fit:contain;" alt="Logo Menu">`;
     } else {
         const text = escapeHTML(getVal('Logo_Text', 'Menu'));
-        logoCont.innerHTML = `<h1 style="color:${getVal('Logo_Text_Color', '#000')}; font-size:${getVal('Logo_Text_Size', '28px')}; font-weight:${isTruthy('Logo_Text_Bold', true, true) ? 'bold' : 'normal'}; margin:0; line-height:1; font-family:${getVal('Logo_Text_Font', 'sans-serif')};">${text}</h1>`;
+        logoCont.innerHTML = `<h1 style="color:${getVal('Logo_Text_Color', '#000')}; font-size:${getVal('Logo_Text_Size', '28px')}; font-weight:${isTruthy('Logo_Text_Bold', true, true) ? 'bold' : 'normal'}; margin:0; line-height:1; font-family:${getVal('Logo_Text_Font', 'sans-serif')}; text-align:${align}; width:100%;">${text}</h1>`;
     }
 
     // SOTTOTITOLO
@@ -202,11 +213,10 @@ function applyConfig() {
         sub.style.display = 'none';
     } else {
         sub.style.display = 'block'; 
-        sub.textContent = getVal('Subtitle_Text', ''); // textContent previene XSS
+        sub.textContent = getVal('Subtitle_Text', '');
         sub.style.cssText = `color:${getVal('Subtitle_Color', '#6b7280')}; font-size:${getVal('Subtitle_Size', '14px')}; font-weight:${isTruthy('Subtitle_Bold', true, false) ? 'bold' : 'normal'}; margin-top:${getVal('Subtitle_Margin_Top', '10px')}; text-align:${getVal('Subtitle_Align', 'center')}; font-family:${getVal('Subtitle_Font', 'sans-serif')};`;
     }
 
-    // TITOLI DI LIVELLO
     const lvlSh = getShadow('Level_Title_Shadow', true);
     const levelStyle = `color:${getVal('Level_Title_Color', '#4f46e5')}; font-size:${getVal('Level_Title_Size', '14px')}; font-weight:${isTruthy('Level_Title_Bold', true, true) ? 'bold' : 'normal'}; text-align:${getVal('Level_Title_Align', 'center')}; font-family:${getVal('Level_Title_Font', 'sans-serif')}; text-shadow: ${lvlSh}; margin-top: 8px; display: none;`;
     document.getElementById('level-title-inside').style.cssText = levelStyle;
@@ -214,23 +224,21 @@ function applyConfig() {
     const levelMarginB = getVal('Level_Title_Margin_Bottom', '25px');
     document.getElementById('level-title-outside').style.cssText = levelStyle + ` margin-top: 0px; margin-bottom: ${levelMarginB};`; 
     
-    // TASTO BACK
     const backBtn = document.getElementById('back-button');
-    const hHeight = parseInt(getVal('Header_Height', '120'));
+    const hHeight = parseInt(getVal('Header_Height', '120')) || 120;
     const pos = getVal('Back_Btn_Position', 'center').toLowerCase();
     if (pos === 'center') backBtn.style.top = `calc(${hHeight}px / 2 - 22px)`;
     else if (pos === 'bottom') backBtn.style.top = `calc(${hHeight}px - 55px)`;
     else if (pos === 'outside') backBtn.style.top = `calc(${hHeight}px + 15px)`;
 }
 
-// CALCOLO MARGINI HEADER DINAMICO
 function autoAdjustPadding() {
     setTimeout(() => {
         const header = document.getElementById('main-header');
         const subHeader = document.getElementById('sub-header');
         const mainContent = document.getElementById('main-content');
         let totalH = header.offsetHeight;
-        if(subHeader && subHeader.style.display !== 'none') {
+        if(subHeader && !subHeader.classList.contains('hidden') && subHeader.style.display !== 'none') {
             totalH += subHeader.offsetHeight;
         }
         if(mainContent) mainContent.style.paddingTop = `calc(${totalH}px + 20px)`;
@@ -288,14 +296,14 @@ function renderLevel1() {
         if (bgType === 'color') {
             bgStyle = `background: ${getVal('Macro_Bg_Color', '#cbd5e1')};`;
         } else {
-            const imgUrl = getVal(`Macro_Img_${m}`, '');
+            const imgUrl = getDynamicVal('Macro_Img_', m, '');
             if (imgUrl) bgStyle = `background-image: url('${escapeHTML(imgUrl)}');`;
             else bgStyle = `background: ${getVal('Macro_Bg_Color', '#cbd5e1')};`;
         }
 
         const tPos = getVal('Macro_Text_Pos', 'center').toLowerCase(); 
         const safeName = escapeHTML(m);
-        const argName = safeName.replace(/'/g, "\\'"); // Escaping JS per l'onclick
+        const argName = escapeJS(m); 
         
         let html = '';
         if(tPos === 'outside') {
@@ -322,7 +330,7 @@ function renderLevel2(mName) {
         let iconClass = 'text-gray-400';
 
         if(showCatPhoto) {
-            const imgUrl = getVal(`Category_Img_${c}`, '');
+            const imgUrl = getDynamicVal('Category_Img_', c, '');
             if(imgUrl) {
                 bgStyle = `background-image: url('${escapeHTML(imgUrl)}'); border: none;`;
                 overlayHTML = `<div class="cat-overlay"></div>`;
@@ -332,8 +340,8 @@ function renderLevel2(mName) {
         }
 
         const safeCat = escapeHTML(c);
-        const argMacro = escapeHTML(mName).replace(/'/g, "\\'");
-        const argCat = safeCat.replace(/'/g, "\\'");
+        const argMacro = escapeJS(mName);
+        const argCat = escapeJS(c);
 
         container.innerHTML += `
             <div onclick="renderLevel3('${argMacro}', '${argCat}')" class="menu-card cat-card" style="${bgStyle}">
@@ -410,7 +418,6 @@ function renderLevel3(mName, cName, isFiltering = false) {
     }
 
     items.forEach(i => {
-        // Sanificazione totale delle stringhe
         const safeName = escapeHTML(i.name);
         const safeDesc = escapeHTML(i.desc);
         const safeAllerg = escapeHTML(i.allerg);
@@ -509,10 +516,10 @@ function showPage(p, levelTitle = '') {
             if(isTruthy('Level_Title_Show', true, true)) {
                 if(getVal('Level_Title_Position', 'inside').toLowerCase() === 'outside') {
                     titleOutside.classList.remove('hidden'); 
-                    titleOutside.textContent = levelTitle; // XSS Safe
+                    titleOutside.textContent = levelTitle; 
                 } else {
                     titleInside.classList.remove('hidden'); 
-                    titleInside.textContent = levelTitle; // XSS Safe
+                    titleInside.textContent = levelTitle; 
                 }
             }
         }
