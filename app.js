@@ -224,6 +224,8 @@ function applyConfig() {
     
     const levelMarginB = getVal('Level_Title_Margin_Bottom', '25px');
     document.getElementById('level-title-outside').style.cssText = levelStyle + ` margin-top: 0px; margin-bottom: ${levelMarginB};`; 
+}
+// <-- Fine della funzione applyConfig() 
     
     const backBtn = document.getElementById('back-button');
     const hHeight = parseInt(getVal('Header_Height', '120')) || 120;
@@ -233,17 +235,34 @@ function applyConfig() {
     else if (pos === 'outside') backBtn.style.top = `calc(${hHeight}px + 15px)`;
 }
 
-function autoAdjustPadding() {
+// NUOVO MOTORE DI LAYOUT DINAMICO
+function updateLayout() {
     setTimeout(() => {
         const header = document.getElementById('main-header');
         const subHeader = document.getElementById('sub-header');
         const mainContent = document.getElementById('main-content');
-        let totalH = header.offsetHeight;
+        const backBtn = document.getElementById('back-button');
+
+        // Misura l'altezza REALE dell'header in questo esatto momento
+        const hHeight = header.offsetHeight; 
+
+        // 1. Riposiziona il Sub-Header (Filtri)
+        if(subHeader) subHeader.style.top = `${hHeight}px`;
+
+        // 2. Riposiziona il padding dei piatti
+        let totalH = hHeight;
         if(subHeader && !subHeader.classList.contains('hidden') && subHeader.style.display !== 'none') {
             totalH += subHeader.offsetHeight;
         }
         if(mainContent) mainContent.style.paddingTop = `calc(${totalH}px + 20px)`;
-    }, 50); 
+
+        // 3. Riposiziona il tasto indietro
+        const pos = getVal('Back_Btn_Position', 'center').toLowerCase();
+        if (pos === 'center') backBtn.style.top = `calc(${hHeight}px / 2 - 22px)`;
+        else if (pos === 'bottom') backBtn.style.top = `calc(${hHeight}px - 55px)`;
+        else if (pos === 'outside') backBtn.style.top = `calc(${hHeight}px + 15px)`;
+        
+    }, 50); // Piccolo ritardo per permettere al browser di renderizzare i pixel
 }
 
 // --- LOGICA RENDER E NAVIGAZIONE ---
@@ -526,7 +545,7 @@ function showPage(p, levelTitle = '') {
         }
     }
     
-    autoAdjustPadding();
+    updateLayout();
     window.scrollTo({top: 0, behavior: 'instant'});
 }
 
