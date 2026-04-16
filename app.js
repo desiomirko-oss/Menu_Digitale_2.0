@@ -1,4 +1,4 @@
-const VERSION = "4.1-HEADER-COLOR-FIX";
+const VERSION = "5.0-MODULO-SOTTOTITOLO";
 console.log("Versione App: " + VERSION);
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -48,7 +48,7 @@ function setupAutoTranslate() {
     }
 }
 
-// --- UTILITIES, SICUREZZA E TAGLIOLA VIRGOLE ---
+// --- UTILITIES E PULIZIA ---
 function escapeHTML(str) {
     if (str === null || str === undefined) return '';
     return String(str).replace(/[&<>'"]/g, tag => ({
@@ -98,23 +98,18 @@ function isDataTruthy(val) {
     return ['TRUE', 'SI', 'SÌ', 'YES', '1', 'V', 'VERO'].includes(v);
 }
 
-// --- CONVERTITORE COLORI ANTIPROIETTILE ---
-function parseColor(colorVal, opacityVal) {
+function parseColor(colorVal, opacityVal = 1) {
     let op = parseFloat(opacityVal);
-    if(isNaN(op)) op = 0.95; // Default se l'opacità è scritta male
+    if(isNaN(op)) op = 1; 
     
     let c = String(colorVal).trim();
-    if (!c) return `rgba(255, 255, 255, ${op})`; // Bianco default
+    if (!c) return `rgba(0, 0, 0, ${op})`; 
     
-    // Se l'utente ha scordato il cancelletto (es. ffffff o 4f46e5)
-    if(/^[0-9A-Fa-f]{3,6}$/.test(c)) {
-        c = '#' + c;
-    }
+    if(/^[0-9A-Fa-f]{3,6}$/.test(c)) c = '#' + c;
     
-    // Se è un esadecimale (HEX)
     if (c.startsWith('#')) {
         let hex = c.replace('#', '');
-        if(hex.length === 3) hex = hex.split('').map(x => x+x).join(''); // Converte #FFF in #FFFFFF
+        if(hex.length === 3) hex = hex.split('').map(x => x+x).join(''); 
         if(hex.length === 6) {
             let r = parseInt(hex.substring(0, 2), 16);
             let g = parseInt(hex.substring(2, 4), 16);
@@ -122,8 +117,6 @@ function parseColor(colorVal, opacityVal) {
             return `rgba(${r}, ${g}, ${b}, ${op})`;
         }
     }
-    
-    // Se ha usato nomi di colori (red, blue) o rgba diretti, lo passiamo liscio
     return c; 
 }
 
@@ -149,7 +142,7 @@ async function fetchConfig() {
         const response = await fetch(url);
         if(!response.ok) throw new Error("Network Error");
         let csv = await response.text();
-        csv = csv.replace(/^\ufeff/, ''); // Pulizia BOM
+        csv = csv.replace(/^\ufeff/, ''); 
         
         const rows = csv.split(/\r?\n/);
         rows.slice(1).forEach(row => {
@@ -168,12 +161,10 @@ async function fetchConfig() {
 function applyConfig() {
     const root = document.documentElement;
 
-    // --- CABLAGGIO HEADER E COLORI (Modulo 2) ---
+    // --- MODULO 2: HEADER E COLORI ---
     const hColor = getVal('Header_Color', '#ffffff');
     const hOpacity = getVal('Header_Opacity', '0.95');
     const finalBgColor = parseColor(hColor, hOpacity);
-    
-    console.log(`Applicando Colore Header: ${hColor} con opacità ${hOpacity} -> Risultato: ${finalBgColor}`);
     root.style.setProperty('--header-bg', finalBgColor);
 
     let shadowVal = 'none';
@@ -183,29 +174,43 @@ function applyConfig() {
     else if(intensity === 'strong') shadowVal = '0 8px 25px rgba(0,0,0,0.15)';
     root.style.setProperty('--header-shadow', shadowVal);
 
-    // --- CABLAGGIO LOGO (Modulo 1) ---
+    // --- MODULO 1: LOGO ---
     const logoCont = document.getElementById('logo-container');
     const logoUrl = getVal('Logo_Image_URL', '');
-    const align = getVal('Logo_Align', 'center').toLowerCase();
-    const height = getVal('Logo_Height', '60px');
-    const mt = getVal('Logo_Margin_Top', '0px');
-    const mb = getVal('Logo_Margin_Bottom', '0px');
-
-    logoCont.style.justifyContent = align === 'left' ? 'flex-start' : (align === 'right' ? 'flex-end' : 'center');
-    logoCont.style.marginTop = mt;
-    logoCont.style.marginBottom = mb;
+    const logoAlign = getVal('Logo_Align', 'center').toLowerCase();
+    
+    logoCont.style.justifyContent = logoAlign === 'left' ? 'flex-start' : (logoAlign === 'right' ? 'flex-end' : 'center');
+    logoCont.style.marginTop = getVal('Logo_Margin_Top', '0px');
+    logoCont.style.marginBottom = getVal('Logo_Margin_Bottom', '0px');
     
     if (logoUrl !== '') {
-        logoCont.innerHTML = `<img src="${escapeHTML(logoUrl)}" style="max-height:${escapeHTML(height)}; object-fit:contain;" alt="Logo Menu" onload="updateLayout()" translate="no">`;
+        logoCont.innerHTML = `<img src="${escapeHTML(logoUrl)}" style="max-height:${escapeHTML(getVal('Logo_Height', '60px'))}; object-fit:contain;" alt="Logo Menu" onload="updateLayout()" translate="no">`;
     } else {
         logoCont.innerHTML = '';
     }
 
-    // Elementi testo extra spenti per ora
+    // --- MODULO 3: SOTTOTITOLO ---
     const subContainer = document.getElementById('subtitle-container');
+    const subText = getVal('Subtitle_Text', '');
+
+    if (subText !== '') {
+        subContainer.style.display = 'block';
+        subContainer.innerText = subText;
+        subContainer.style.color = parseColor(getVal('Subtitle_Color', '#6b7280'));
+        subContainer.style.fontSize = getVal('Subtitle_Size', '14px');
+        subContainer.style.fontWeight = isDataTruthy(getVal('Subtitle_Bold', 'FALSE')) ? 'bold' : 'normal';
+        subContainer.style.textAlign = getVal('Subtitle_Align', 'center').toLowerCase();
+        subContainer.style.marginBottom = getVal('Subtitle_Margin_Bottom', '10px');
+        
+        // Chiamiamo updateLayout nel caso il testo vada a capo e ingrandisca l'header
+        updateLayout(); 
+    } else {
+        subContainer.style.display = 'none';
+    }
+
+    // Titoli extra spenti per ora
     const lvlInside = document.getElementById('level-title-inside');
     const lvlOutside = document.getElementById('level-title-outside');
-    if(subContainer) subContainer.style.display = 'none';
     if(lvlInside) lvlInside.style.display = 'none';
     if(lvlOutside) lvlOutside.style.display = 'none';
 }
