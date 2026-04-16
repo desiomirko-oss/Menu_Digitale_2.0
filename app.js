@@ -1,4 +1,4 @@
-const VERSION = "7.0-THE-VAULT-BACKBTN";
+const VERSION = "7.1-BACKBTN-FIX";
 console.log("App Version: " + VERSION);
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -100,7 +100,6 @@ function applyConfig() {
     // --- MODULO 7: TASTO INDIETRO ---
     root.style.setProperty('--back-bg', parseColor(getVal('Back_Btn_Bg', '#111827')));
     root.style.setProperty('--back-color', parseColor(getVal('Back_Btn_Color', '#ffffff')));
-    // Forza il colore sull'SVG (se presente) per compatibilità HTML
     const backBtn = document.getElementById('back-button');
     if (backBtn) {
         const svg = backBtn.querySelector('svg');
@@ -155,7 +154,7 @@ function applyConfig() {
     else if(intensity === 'strong') shadow = '0 8px 25px rgba(0,0,0,0.15)';
     root.style.setProperty('--header-shadow', shadow);
 
-    // --- LOGO (COMPATTO) ---
+    // --- LOGO ---
     const logoCont = document.getElementById('logo-container');
     const logoUrl = getVal('Logo_Image_URL', '');
     const align = getVal('Logo_Align', 'center').toLowerCase();
@@ -171,7 +170,7 @@ function applyConfig() {
         updateLayout();
     }
 
-    // --- SOTTOTITOLO (COMPATTO) ---
+    // --- SOTTOTITOLO ---
     const sub = document.getElementById('subtitle-container');
     const subText = getVal('Subtitle_Text', '');
     if (subText !== '') {
@@ -193,7 +192,17 @@ function updateLayout() {
     setTimeout(() => {
         const header = document.getElementById('main-header');
         const main = document.getElementById('main-content');
-        if (header && main) main.style.paddingTop = `calc(${header.offsetHeight}px + 20px)`;
+        const backBtn = document.getElementById('back-button');
+        
+        if (header) {
+            const hHeight = header.offsetHeight;
+            if (main) main.style.paddingTop = `calc(${hHeight}px + 20px)`;
+            
+            // Centratura perfetta del bottone indietro (calcolando la metà dell'header meno la metà del bottone)
+            if (backBtn) {
+                backBtn.style.top = (hHeight / 2 - 22) + "px";
+            }
+        }
     }, 50);
 }
 
@@ -264,7 +273,6 @@ function showPage(p) {
     });
     document.getElementById(p).classList.remove('hidden');
     
-    // GESTIONE INTELLIGENTE TASTO INDIETRO E OVERLAP LOGO
     const backBtn = document.getElementById('back-button');
     const wrapper = document.getElementById('header-content-wrapper');
     const align = getVal('Logo_Align', 'center').toLowerCase();
@@ -272,10 +280,9 @@ function showPage(p) {
     if (backBtn) {
         if (p === 'page-macro') {
             backBtn.classList.remove('active');
-            if(wrapper) wrapper.style.paddingLeft = '0px'; // Resetta protezione
+            if(wrapper) wrapper.style.paddingLeft = '0px'; 
         } else {
             backBtn.classList.add('active');
-            // Se il logo è a sinistra, attiva lo scudo di 50px per non farlo finire sotto la freccia
             if(wrapper && align === 'left') {
                 wrapper.style.paddingLeft = '50px';
             }
