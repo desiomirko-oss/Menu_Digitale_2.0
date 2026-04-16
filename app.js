@@ -1,4 +1,4 @@
-const VERSION = "6.0-MODULO-BACK-BTN";
+const VERSION = "6.1-BACK-BTN-AND-ROW-FIX";
 console.log("Versione App: " + VERSION);
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -6,7 +6,6 @@ const SHEET_ID = urlParams.get('id');
 let appConfig = {};
 let fullData = [];
 let navigationStack = ['page-macro'];
-
 let activeFilters = []; 
 let currentMacroName = '';
 let currentCategoryName = '';
@@ -67,7 +66,7 @@ function parseColor(colorVal, opacityVal = 1) {
     return c; 
 }
 
-// --- CORE ---
+// --- CORE APP ---
 async function init() {
     setupAutoTranslate();
     if (!SHEET_ID) return;
@@ -81,17 +80,25 @@ async function fetchConfig() {
     try {
         const response = await fetch(url);
         let csv = await response.text();
-        csv.replace(/^\ufeff/, '').split(/\r?\n/).slice(1).forEach(row => {
+        // NIENTE PIÙ SLICE(1)! Legge tutto e scarta solo se la cella dice "Property"
+        csv.replace(/^\ufeff/, '').split(/\r?\n/).forEach(row => {
+            if(row.trim() === '') return;
             const cols = safeParseCSVRow(row);
-            if(cols.length >= 2) appConfig[cols[0]] = cols[1];
+            if(cols.length >= 2) {
+                let key = cols[0];
+                if(key.toLowerCase() !== 'property') {
+                    appConfig[key] = cols[1];
+                }
+            }
         });
+        console.log("Config Caricato Correttamente:", appConfig);
     } catch(e) { console.error(e); }
 }
 
 function applyConfig() {
     const root = document.documentElement;
 
-    // Modulo Header
+    // --- HEADER ---
     root.style.setProperty('--header-bg', parseColor(getVal('Header_Color', '#ffffff'), getVal('Header_Opacity', '0.95')));
     let shadow = 'none'; const intensity = getVal('Header_Shadow_Intensity', 'medium').toLowerCase();
     if(intensity === 'light') shadow = '0 2px 8px rgba(0,0,0,0.05)';
@@ -99,11 +106,22 @@ function applyConfig() {
     else if(intensity === 'strong') shadow = '0 8px 25px rgba(0,0,0,0.15)';
     root.style.setProperty('--header-shadow', shadow);
 
-    // Modulo 4: Tasto Indietro (Back Button)
-    root.style.setProperty('--back-bg', parseColor(getVal('Back_Btn_Bg', 'rgba(255, 255, 255, 0.9)')));
-    root.style.setProperty('--back-color', parseColor(getVal('Back_Btn_Color', '#4f46e5')));
+    // --- TASTO INDIETRO (Colori) ---
+    const backBg = parseColor(getVal('Back_Btn_Bg', 'rgba(255, 255, 255, 0.9)'));
+    const backColor = parseColor(getVal('Back_Btn_Color', '#4f46e5'));
+    root.style.setProperty('--back-bg', backBg);
+    root.style.setProperty('--back-color', backColor);
+    
+    // Forza i colori anche sull'elemento HTML per sicurezza
+    const backBtn = document.getElementById('back-button');
+    if (backBtn) {
+        backBtn.style.backgroundColor = backBg;
+        backBtn.style.color = backColor;
+        const svg = backBtn.querySelector('svg');
+        if (svg) svg.style.stroke = 'currentColor'; 
+    }
 
-    // Modulo Logo
+    // --- LOGO ---
     const logoCont = document.getElementById('logo-container');
     const logoAlign = getVal('Logo_Align', 'center').toLowerCase();
     logoCont.style.justifyContent = logoAlign === 'left' ? 'flex-start' : (logoAlign === 'right' ? 'flex-end' : 'center');
@@ -112,7 +130,7 @@ function applyConfig() {
     const logoUrl = getVal('Logo_Image_URL', '');
     if (logoUrl) logoCont.innerHTML = `<img src="${escapeHTML(logoUrl)}" style="max-height:${getVal('Logo_Height', '60px')}; object-fit:contain;" onload="updateLayout()" translate="no">`;
 
-    // Modulo Sottotitolo
+    // --- SOTTOTITOLO ---
     const subContainer = document.getElementById('subtitle-container');
     const subText = getVal('Subtitle_Text', '');
     if (subText !== '') {
@@ -130,7 +148,7 @@ function applyConfig() {
     }
 }
 
-// --- MOTORE LAYOUT (Fix Sovrapposizione) ---
+// --- MOTORE LAYOUT E TASTO INDIETRO ---
 function updateLayout() {
     setTimeout(() => {
         const header = document.getElementById('main-header');
@@ -147,7 +165,7 @@ function updateLayout() {
         if (subHeader && subHeader.style.display !== 'none') totalH += subHeader.offsetHeight;
         if (mainContent) mainContent.style.paddingTop = `calc(${totalH}px + 20px)`;
 
-        // RIPOSIZIONAMENTO INTELLIGENTE TASTO INDIETRO
+        // POSIZIONE TASTO INDIETRO
         const pos = getVal('Back_Btn_Position', 'top').toLowerCase();
         if (pos === 'top') {
             backBtn.style.top = '25px'; 
@@ -161,7 +179,7 @@ function updateLayout() {
     }, 50); 
 }
 
-// --- LOGICA NAVIGAZIONE ---
+// --- NAVIGAZIONE ---
 function showPage(p) {
     if(p !== 'page-items') activeFilters = [];
 
@@ -187,11 +205,9 @@ function showPage(p) {
         if(wrapper) wrapper.style.paddingLeft = '0px'; 
     } else {
         backBtn.classList.add('active');
-        
-        // SCUDO ANTI-SOVRAPPOSIZIONE
+        // Se il logo è a sinistra, sposta i testi per fare spazio al pulsante
         if(wrapper) {
             const pos = getVal('Back_Btn_Position', 'top').toLowerCase();
-            // Se il logo è a sinistra e il tasto indietro è nell'header, facciamo spazio orizzontale
             wrapper.style.paddingLeft = (align === 'left' && pos !== 'outside') ? '45px' : '0px';
         }
 
