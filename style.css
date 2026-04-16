@@ -12,7 +12,6 @@ body {
     color: #111827;
 }
 
-/* MODULO 2: HEADER (100px minimi + adattamento) */
 #main-header {
     background: var(--header-bg);
     box-shadow: var(--header-shadow);
@@ -25,8 +24,8 @@ body {
     flex-direction: column;
     justify-content: center;
     padding: 10px 20px;
-    min-height: 100px; /* La tua richiesta: minimo 100px */
-    height: auto;      /* Si adatta se il logo o i margini lo spingono oltre */
+    min-height: 100px; 
+    height: auto;      
     transition: background 0.3s ease;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -34,14 +33,15 @@ body {
 
 #logo-container { width: 100%; display: flex; align-items: center; }
 
-/* Elementi futuri disattivati per ora */
-#subtitle-container, #back-button { display: none !important; }
+/* SOTTOTITOLO SBLOCCATO: pronto per essere comandato dal JS */
+#subtitle-container { width: 100%; display: none; line-height: 1.4; word-wrap: break-word; }
 
-/* CONTENUTO */
+/* Tasto indietro ancora bloccato in attesa del Modulo 4 */
+#back-button { display: none !important; }
+
 #main-content { padding-top: 100px; transition: padding-top 0.2s ease; }
 .container { max-width: 28rem; margin: 0 auto; padding: 0 1.25rem 2.5rem; }
 
-/* GRIGLIA MENU */
 .macro-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
 .macro-card { 
     height: 180px; border-radius: 1.25rem; background-size: cover; background-position: center; 
