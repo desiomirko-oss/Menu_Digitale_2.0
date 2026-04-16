@@ -1,4 +1,4 @@
-const VERSION = "1.0-REBOOT-LOGO";
+const VERSION = "2.0-MODULO-HEADER";
 console.log("App Version: " + VERSION);
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -30,6 +30,22 @@ function getVal(key, def) {
     return def;
 }
 
+// Convertitore Colori Antiproiettile
+function parseColor(colorVal, opacityVal = 1) {
+    let op = parseFloat(opacityVal); if(isNaN(op)) op = 1; 
+    let c = String(colorVal).trim(); if (!c) return `rgba(255,255,255,${op})`;
+    if(/^[0-9A-Fa-f]{3,6}$/.test(c)) c = '#' + c;
+    if (c.startsWith('#')) {
+        let hex = c.replace('#', '');
+        if(hex.length === 3) hex = hex.split('').map(x => x+x).join(''); 
+        if(hex.length === 6) {
+            let r = parseInt(hex.substring(0, 2), 16), g = parseInt(hex.substring(2, 4), 16), b = parseInt(hex.substring(4, 6), 16);
+            return `rgba(${r}, ${g}, ${b}, ${op})`;
+        }
+    }
+    return c; 
+}
+
 // --- INIT ---
 async function init() {
     if (!SHEET_ID) return;
@@ -38,7 +54,7 @@ async function init() {
     await fetchMenu();
 }
 
-// --- FETCH CONFIG (Modulo 1) ---
+// --- FETCH CONFIG ---
 async function fetchConfig() {
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=config&t=${Date.now()}`;
     try {
@@ -50,11 +66,31 @@ async function fetchConfig() {
             const cols = safeParseCSVRow(row);
             if(cols.length >= 2) appConfig[cols[0]] = cols[1];
         });
+
+        // Allarme Salva-Vita Google Sheets
+        const keys = Object.keys(appConfig);
+        if (keys.length > 0 && keys[0].includes("Logo_Image_URL") && keys[0].length > 30) {
+            document.body.innerHTML = `<div style="padding:40px; text-align:center;"><h2 style="color:red;">🚨 Errore Google Sheets! 🚨</h2><p>Dati schiacciati in una sola cella. Usa 'Dividi testo in colonne'.</p></div>`;
+            throw new Error("Dati CSV compressi");
+        }
         console.log("Config Caricato:", appConfig);
     } catch(e) { console.error("Errore Config:", e); }
 }
 
 function applyConfig() {
+    const root = document.documentElement;
+
+    // --- MODULO 2: HEADER E COLORI ---
+    root.style.setProperty('--header-bg', parseColor(getVal('Header_Color', '#ffffff'), getVal('Header_Opacity', '0.95')));
+    
+    let shadow = 'none'; 
+    const intensity = getVal('Header_Shadow_Intensity', 'medium').toLowerCase();
+    if(intensity === 'light') shadow = '0 2px 8px rgba(0,0,0,0.05)';
+    else if(intensity === 'medium') shadow = '0 4px 15px rgba(0,0,0,0.08)';
+    else if(intensity === 'strong') shadow = '0 8px 25px rgba(0,0,0,0.15)';
+    root.style.setProperty('--header-shadow', shadow);
+
+    // --- MODULO 1: LOGO ---
     const logoCont = document.getElementById('logo-container');
     const logoUrl = getVal('Logo_Image_URL', '');
     const align = getVal('Logo_Align', 'center').toLowerCase();
@@ -65,7 +101,6 @@ function applyConfig() {
     
     if (logoUrl) {
         logoCont.innerHTML = `<img src="${escapeHTML(logoUrl)}" id="app-logo" style="max-height:${escapeHTML(getVal('Logo_Height', '80px'))}; object-fit:contain;" translate="no">`;
-        // Aspettiamo che il logo sia visibile prima di spostare i piatti giù
         document.getElementById('app-logo').onload = updateLayout;
     } else {
         logoCont.innerHTML = '';
@@ -73,18 +108,18 @@ function applyConfig() {
     }
 }
 
-// Calcola lo spazio esatto sotto l'header
 function updateLayout() {
     setTimeout(() => {
         const header = document.getElementById('main-header');
         const main = document.getElementById('main-content');
         if (header && main) {
+            // L'header ora è ALMENO 100px. Calcoliamo lo spazio effettivo in base all'ingombro del logo.
             main.style.paddingTop = `calc(${header.offsetHeight}px + 20px)`;
         }
     }, 50);
 }
 
-// --- FETCH MENU E RENDERING (Per far funzionare l'app) ---
+// --- MENU RENDERING ---
 async function fetchMenu() {
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=menu&t=${Date.now()}`;
     try {
@@ -144,7 +179,6 @@ function showPage(p) {
     window.scrollTo({top: 0, behavior: 'instant'});
 }
 
-// Il tasto indietro per ora è disattivato visivamente, ma la funzione c'è
 function goBack() { if(navigationStack.length > 1) { navigationStack.pop(); showPage(navigationStack[navigationStack.length-1]); } }
 
 init();
