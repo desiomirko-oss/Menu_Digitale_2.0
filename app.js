@@ -1,4 +1,4 @@
-const VERSION = "6.0-HEADER-COMPATTO";
+const VERSION = "7.0-THE-VAULT-BACKBTN";
 console.log("App Version: " + VERSION);
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -97,6 +97,16 @@ async function fetchConfig() {
 function applyConfig() {
     const root = document.documentElement;
 
+    // --- MODULO 7: TASTO INDIETRO ---
+    root.style.setProperty('--back-bg', parseColor(getVal('Back_Btn_Bg', '#111827')));
+    root.style.setProperty('--back-color', parseColor(getVal('Back_Btn_Color', '#ffffff')));
+    // Forza il colore sull'SVG (se presente) per compatibilità HTML
+    const backBtn = document.getElementById('back-button');
+    if (backBtn) {
+        const svg = backBtn.querySelector('svg');
+        if (svg) { svg.style.stroke = 'currentColor'; svg.style.fill = 'none'; }
+    }
+
     // --- MACRO ---
     const layout = getVal('Macro_Layout', 'grid').toLowerCase();
     root.style.setProperty('--macro-cols', layout === 'list' ? '1' : '2');
@@ -151,7 +161,7 @@ function applyConfig() {
     const align = getVal('Logo_Align', 'center').toLowerCase();
     logoCont.style.justifyContent = align === 'left' ? 'flex-start' : (align === 'right' ? 'flex-end' : 'center');
     logoCont.style.marginTop = getVal('Logo_Margin_Top', '0px');
-    logoCont.style.marginBottom = '0px'; // AZZERATO
+    logoCont.style.marginBottom = '0px'; 
     
     if (logoUrl) {
         logoCont.innerHTML = `<img src="${escapeHTML(logoUrl)}" id="app-logo" style="max-height:${escapeHTML(getVal('Logo_Height', '80px'))}; object-fit:contain;" translate="no">`;
@@ -172,10 +182,8 @@ function applyConfig() {
         sub.style.fontFamily = getVal('Subtitle_Font', 'sans-serif');
         sub.style.fontWeight = isTruthy(getVal('Subtitle_Bold', 'FALSE')) ? 'bold' : 'normal';
         sub.style.textAlign = getVal('Subtitle_Align', 'center').toLowerCase();
-        
-        // IL MARGINE ORA E' SOPRA (Tra il testo e il logo)
         sub.style.marginTop = getVal('Subtitle_Margin_Top', '5px');
-        sub.style.marginBottom = '0px'; // AZZERATO
+        sub.style.marginBottom = '0px';
     } else {
         sub.style.display = 'none';
     }
@@ -248,16 +256,41 @@ function renderLevel3(m, c) {
     showPage('page-items');
 }
 
+// --- NAVIGAZIONE PROTETTA ---
 function showPage(p) {
     ['page-macro','page-categories','page-items'].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.classList.add('hidden');
     });
     document.getElementById(p).classList.remove('hidden');
+    
+    // GESTIONE INTELLIGENTE TASTO INDIETRO E OVERLAP LOGO
+    const backBtn = document.getElementById('back-button');
+    const wrapper = document.getElementById('header-content-wrapper');
+    const align = getVal('Logo_Align', 'center').toLowerCase();
+
+    if (backBtn) {
+        if (p === 'page-macro') {
+            backBtn.classList.remove('active');
+            if(wrapper) wrapper.style.paddingLeft = '0px'; // Resetta protezione
+        } else {
+            backBtn.classList.add('active');
+            // Se il logo è a sinistra, attiva lo scudo di 50px per non farlo finire sotto la freccia
+            if(wrapper && align === 'left') {
+                wrapper.style.paddingLeft = '50px';
+            }
+        }
+    }
+
     updateLayout();
     window.scrollTo({top: 0, behavior: 'instant'});
 }
 
-function goBack() { if(navigationStack.length > 1) { navigationStack.pop(); showPage(navigationStack[navigationStack.length-1]); } }
+function goBack() { 
+    if(navigationStack.length > 1) { 
+        navigationStack.pop(); 
+        showPage(navigationStack[navigationStack.length-1]); 
+    } 
+}
 
 init();
