@@ -12,7 +12,6 @@
     --macro-text-shadow: 0px 2px 4px rgba(0,0,0,0.8);
     --macro-align-v: center;
     --macro-align-h: center;
-    /* Variabili Tasto Indietro */
     --back-bg: #111827;
     --back-color: #ffffff;
 }
@@ -29,7 +28,7 @@ body {
     color: #111827;
 }
 
-/* HEADER COMPATTO CON TASTO INDIETRO */
+/* HEADER COMPATTO */
 #main-header {
     background: var(--header-bg);
     box-shadow: var(--header-shadow);
@@ -49,18 +48,15 @@ body {
     -webkit-backdrop-filter: blur(12px);
 }
 
-/* Wrapper per proteggere il logo se il tasto appare a sinistra */
 #header-content-wrapper { width: 100%; transition: padding-left 0.3s ease; }
-
 #logo-container { width: 100%; display: flex; align-items: center; }
 #subtitle-container { width: 100%; display: none; line-height: 1.4; word-wrap: break-word; }
 
-/* TASTO INDIETRO MATEMATICO */
+/* TASTO INDIETRO BLINDATO */
 #back-button {
-    position: absolute;
+    position: fixed; /* Torna a fixed per essere ancorato allo schermo come l'header */
     left: 15px;
-    top: 50%;
-    transform: translateY(-50%);
+    /* Il TOP viene calcolato dinamicamente dal JS */
     width: 44px;
     height: 44px;
     background: var(--back-bg);
@@ -76,6 +72,9 @@ body {
     transition: opacity 0.2s;
 }
 #back-button.active { display: flex; }
+
+/* Rimpicciolisce il simbolo della freccia al suo interno */
+#back-button svg { width: 20px !important; height: 20px !important; }
 
 #main-content { padding-top: 100px; transition: padding-top 0.2s ease; }
 .container { max-width: 28rem; margin: 0 auto; padding: 0 1.25rem 2.5rem; }
