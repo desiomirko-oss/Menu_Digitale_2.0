@@ -1,4 +1,4 @@
-const VERSION = "9.0-CATEGORY-LEVEL-VAULT";
+const VERSION = "10.0-ITEMS-AR-VAULT";
 console.log("App Version: " + VERSION);
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -97,90 +97,82 @@ async function fetchConfig() {
 function applyConfig() {
     const root = document.documentElement;
 
-    // BOTTONE INDIETRO
+    // ALTRI MODULI
     root.style.setProperty('--back-bg', parseColor(getVal('Back_Btn_Bg', '#111827')));
     root.style.setProperty('--back-color', parseColor(getVal('Back_Btn_Color', '#ffffff')));
     root.style.setProperty('--back-shadow', getVal('Back_Btn_Shadow_Intensity', 'none') !== 'none' ? '0 4px 6px rgba(0,0,0,0.1)' : 'none');
-
-    // MACRO
-    const mLayout = getVal('Macro_Layout', 'grid').toLowerCase();
-    root.style.setProperty('--macro-cols', mLayout === 'list' ? '1' : '2');
+    
+    root.style.setProperty('--macro-cols', getVal('Macro_Layout', 'grid').toLowerCase() === 'list' ? '1' : '2');
     root.style.setProperty('--macro-height', getVal('Macro_Height', '180px'));
     root.style.setProperty('--macro-shadow', getVal('Macro_Shadow_Intensity', 'medium') !== 'none' ? '0 4px 6px rgba(0,0,0,0.1)' : 'none');
     root.style.setProperty('--macro-text-color', parseColor(getVal('Macro_Text_Color', '#ffffff')));
     root.style.setProperty('--macro-text-font', getVal('Macro_Text_Font', 'sans-serif'));
     root.style.setProperty('--macro-text-weight', isTruthy(getVal('Macro_Text_Bold', 'TRUE')) ? 'bold' : 'normal');
     root.style.setProperty('--macro-text-shadow', isTruthy(getVal('Macro_Text_Shadow', 'TRUE')) ? '0px 2px 6px rgba(0,0,0,0.8)' : 'none');
-    const mvPos = getVal('Macro_Text_VAlign', 'center').toLowerCase();
-    root.style.setProperty('--macro-align-v', mvPos === 'top' ? 'flex-start' : (mvPos === 'bottom' ? 'flex-end' : 'center'));
-    const mhPos = getVal('Macro_Text_HAlign', 'center').toLowerCase();
-    root.style.setProperty('--macro-align-h', mhPos === 'left' ? 'flex-start' : (mhPos === 'right' ? 'flex-end' : 'center'));
+    root.style.setProperty('--macro-align-v', getVal('Macro_Text_VAlign', 'center').toLowerCase() === 'top' ? 'flex-start' : (getVal('Macro_Text_VAlign', 'center').toLowerCase() === 'bottom' ? 'flex-end' : 'center'));
+    root.style.setProperty('--macro-align-h', getVal('Macro_Text_HAlign', 'center').toLowerCase() === 'left' ? 'flex-start' : (getVal('Macro_Text_HAlign', 'center').toLowerCase() === 'right' ? 'flex-end' : 'center'));
 
-    // CATEGORIE (MODULO 9)
-    const cLayout = getVal('Cat_Layout', 'list').toLowerCase();
-    root.style.setProperty('--cat-cols', cLayout === 'grid' ? '2' : '1');
+    root.style.setProperty('--cat-cols', getVal('Cat_Layout', 'list').toLowerCase() === 'grid' ? '2' : '1');
     root.style.setProperty('--cat-bg', parseColor(getVal('Cat_Bg_Color', '#ffffff')));
     root.style.setProperty('--cat-height', getVal('Cat_Height', '120px'));
-    let cShadow = '0 2px 4px rgba(0,0,0,0.05)';
     const cInt = getVal('Cat_Shadow_Intensity', 'light').toLowerCase();
-    if(cInt === 'none') cShadow = 'none';
-    else if(cInt === 'medium') cShadow = '0 4px 6px rgba(0,0,0,0.1)';
-    else if(cInt === 'strong') cShadow = '0 10px 15px rgba(0,0,0,0.2)';
-    root.style.setProperty('--cat-shadow', cShadow);
+    root.style.setProperty('--cat-shadow', cInt === 'none' ? 'none' : (cInt === 'medium' ? '0 4px 6px rgba(0,0,0,0.1)' : (cInt === 'strong' ? '0 10px 15px rgba(0,0,0,0.2)' : '0 2px 4px rgba(0,0,0,0.05)')));
     root.style.setProperty('--cat-text-color', parseColor(getVal('Cat_Text_Color', '#1f2937')));
     root.style.setProperty('--cat-text-font', getVal('Cat_Text_Font', 'sans-serif'));
     root.style.setProperty('--cat-text-weight', isTruthy(getVal('Cat_Text_Bold', 'TRUE')) ? 'bold' : 'normal');
-    const cvPos = getVal('Cat_Text_VAlign', 'center').toLowerCase();
-    root.style.setProperty('--cat-align-v', cvPos === 'top' ? 'flex-start' : (cvPos === 'bottom' ? 'flex-end' : 'center'));
-    const chPos = getVal('Cat_Text_HAlign', 'left').toLowerCase();
-    root.style.setProperty('--cat-align-h', chPos === 'center' ? 'center' : (chPos === 'right' ? 'flex-end' : 'flex-start'));
+    root.style.setProperty('--cat-align-v', getVal('Cat_Text_VAlign', 'center').toLowerCase() === 'top' ? 'flex-start' : (getVal('Cat_Text_VAlign', 'center').toLowerCase() === 'bottom' ? 'flex-end' : 'center'));
+    root.style.setProperty('--cat-align-h', getVal('Cat_Text_HAlign', 'left').toLowerCase() === 'center' ? 'center' : (getVal('Cat_Text_HAlign', 'left').toLowerCase() === 'right' ? 'flex-end' : 'flex-start'));
 
-    // SFONDO
-    const bgType = getVal('App_Bg_Type', 'color').toLowerCase();
-    if (bgType === 'image' && getVal('App_Bg_Image_URL', '')) {
+    if (getVal('App_Bg_Type', 'color').toLowerCase() === 'image' && getVal('App_Bg_Image_URL', '')) {
         root.style.setProperty('--app-bg-image', `url('${escapeHTML(getVal('App_Bg_Image_URL', ''))}')`);
         root.style.setProperty('--app-bg-size', getVal('App_Bg_Image_Size', 'cover'));
         root.style.setProperty('--app-bg-position', getVal('App_Bg_Image_Position', 'center'));
-    } else {
-        root.style.setProperty('--app-bg-image', 'none');
-    }
+    } else root.style.setProperty('--app-bg-image', 'none');
     root.style.setProperty('--app-bg-color', parseColor(getVal('App_Bg_Color', '#f9fafb')));
 
-    // HEADER
-    const headerOpacity = isTruthy(getVal('Header_Transparent', 'FALSE')) ? '0.5' : '1';
-    root.style.setProperty('--header-bg', parseColor(getVal('Header_Color', '#ffffff'), headerOpacity));
+    root.style.setProperty('--header-bg', parseColor(getVal('Header_Color', '#ffffff'), isTruthy(getVal('Header_Transparent', 'FALSE')) ? '0.5' : '1'));
     root.style.setProperty('--header-shadow', getVal('Header_Shadow_Intensity', 'medium') !== 'none' ? '0 4px 15px rgba(0,0,0,0.08)' : 'none');
 
-    // LOGO
     const logoCont = document.getElementById('logo-container');
     const logoUrl = getVal('Logo_Image_URL', '');
-    const align = getVal('Logo_Align', 'center').toLowerCase();
-    logoCont.style.justifyContent = align === 'left' ? 'flex-start' : (align === 'right' ? 'flex-end' : 'center');
-    logoCont.style.marginTop = getVal('Logo_Margin_Top', '0px');
+    logoCont.style.justifyContent = getVal('Logo_Align', 'center').toLowerCase() === 'left' ? 'flex-start' : (getVal('Logo_Align', 'center').toLowerCase() === 'right' ? 'flex-end' : 'center');
     if (logoUrl) {
         logoCont.innerHTML = `<img src="${escapeHTML(logoUrl)}" id="app-logo" style="max-height:${escapeHTML(getVal('Logo_Height', '80px'))}; object-fit:contain;" translate="no">`;
         document.getElementById('app-logo').onload = updateLayout;
     }
 
-    // SOTTOTITOLO
     const sub = document.getElementById('subtitle-container');
-    const subText = getVal('Subtitle_Text', '');
     root.style.setProperty('--subtitle-color', parseColor(getVal('Subtitle_Color', '#6b7280')));
     root.style.setProperty('--subtitle-font', getVal('Subtitle_Font', 'sans-serif'));
-    if (subText !== '') {
-        sub.style.display = 'block'; sub.innerText = subText;
+    if (getVal('Subtitle_Text', '') !== '') {
+        sub.style.display = 'block'; sub.innerText = getVal('Subtitle_Text', '');
         sub.style.color = 'var(--subtitle-color)'; sub.style.fontSize = getVal('Subtitle_Size', '14px');
         sub.style.fontFamily = 'var(--subtitle-font)'; sub.style.fontWeight = isTruthy(getVal('Subtitle_Bold', 'FALSE')) ? 'bold' : 'normal';
         sub.style.textAlign = getVal('Subtitle_Align', 'center').toLowerCase(); sub.style.marginTop = getVal('Subtitle_Margin_Top', '5px');
-    } else { sub.style.display = 'none'; }
+    } else sub.style.display = 'none';
 
-    // SUB-HEADER FILTRI
     root.style.setProperty('--filter-margin', getVal('SubHeader_Filter_Margin', '12px'));
-    const subHeaderTitle = document.getElementById('sub-header-title');
-    if (subHeaderTitle) {
-        subHeaderTitle.style.fontSize = getVal('SubHeader_Size', '16px');
-        subHeaderTitle.style.fontWeight = isTruthy(getVal('SubHeader_Bold', 'TRUE')) ? 'bold' : 'normal';
-    }
+    const shTitle = document.getElementById('sub-header-title');
+    if (shTitle) { shTitle.style.fontSize = getVal('SubHeader_Size', '16px'); shTitle.style.fontWeight = isTruthy(getVal('SubHeader_Bold', 'TRUE')) ? 'bold' : 'normal'; }
+
+    // --- MODULO 10: CONTROLLI TESTO E BOTTONE AR ---
+    root.style.setProperty('--item-name-color', parseColor(getVal('Item_Name_Color', '#111827')));
+    root.style.setProperty('--item-name-font', getVal('Item_Name_Font', 'sans-serif'));
+    root.style.setProperty('--item-name-size', getVal('Item_Name_Size', '18px'));
+    root.style.setProperty('--item-name-weight', isTruthy(getVal('Item_Name_Bold', 'TRUE')) ? 'bold' : 'normal');
+
+    root.style.setProperty('--item-desc-color', parseColor(getVal('Item_Desc_Color', '#6b7280')));
+    root.style.setProperty('--item-desc-font', getVal('Item_Desc_Font', 'sans-serif'));
+    root.style.setProperty('--item-desc-size', getVal('Item_Desc_Size', '14px'));
+    root.style.setProperty('--item-desc-weight', isTruthy(getVal('Item_Desc_Bold', 'FALSE')) ? 'bold' : 'normal');
+
+    root.style.setProperty('--item-price-color', parseColor(getVal('Item_Price_Color', '#4f46e5')));
+    root.style.setProperty('--item-price-font', getVal('Item_Price_Font', 'sans-serif'));
+    root.style.setProperty('--item-price-size', getVal('Item_Price_Size', '16px'));
+    root.style.setProperty('--item-price-weight', isTruthy(getVal('Item_Price_Bold', 'TRUE')) ? 'bold' : 'normal');
+
+    root.style.setProperty('--ar-btn-bg', parseColor(getVal('Item_AR_Btn_Bg', '#111827')));
+    root.style.setProperty('--ar-btn-color', parseColor(getVal('Item_AR_Btn_Color', '#ffffff')));
 }
 
 function updateLayout() {
@@ -193,8 +185,7 @@ function updateLayout() {
             const hHeight = header.offsetHeight;
             let totalHeight = hHeight;
             if (backBtn) {
-                const pos = getVal('Back_Btn_Position', 'center').toLowerCase();
-                if (pos === 'bottom') backBtn.style.top = (hHeight - 34 - 10) + "px"; 
+                if (getVal('Back_Btn_Position', 'center').toLowerCase() === 'bottom') backBtn.style.top = (hHeight - 34 - 10) + "px"; 
                 else backBtn.style.top = (hHeight / 2 - 17) + "px"; 
             }
             if (subHeader && subHeader.style.display === 'flex') {
@@ -206,7 +197,7 @@ function updateLayout() {
     }, 50);
 }
 
-// --- RENDERING MENU ---
+// --- RENDERING MENU (Modulo 10: Aggiunta lettura AR) ---
 async function fetchMenu() {
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=menu&t=${Date.now()}`;
     try {
@@ -216,8 +207,12 @@ async function fetchMenu() {
         const rows = csv.split(/\r?\n/);
         for(let i=1; i<rows.length; i++){
             const c = safeParseCSVRow(rows[i]);
+            // Recupero anche la colonna 12 (M) per il link AR
             if(c.length >= 3 && c[0]) {
-                fullData.push({ macro: c[0], cat: c[1], name: c[2], desc: c[3], allerg: c[4], price: c[5], gf: c[6], vegan: c[7], veg: c[8], active: c[10]||'TRUE', photo: c[11] });
+                fullData.push({ 
+                    macro: c[0], cat: c[1], name: c[2], desc: c[3], allerg: c[4], price: c[5], 
+                    gf: c[6], vegan: c[7], veg: c[8], active: c[10]||'TRUE', photo: c[11], ar: c[12] 
+                });
             }
         }
         fullData = fullData.filter(i => isTruthy(i.active));
@@ -240,43 +235,24 @@ function renderLevel1() {
     showPage('page-macro');
 }
 
-// MODULO 9: RENDER CATEGORIE DINAMICO
 function renderLevel2(m) {
     const container = document.getElementById('page-categories');
     const cats = [...new Set(fullData.filter(i => i.macro === m).map(i => i.cat))];
-    
-    container.className = 'cat-container';
-    container.innerHTML = '';
-    
+    container.className = 'cat-container'; container.innerHTML = '';
     const layout = getVal('Cat_Layout', 'list').toLowerCase();
 
     cats.forEach(c => {
-        const searchKey = 'Cat_Img_' + c.replace(/\s+/g, '_');
-        const imgUrl = getVal(searchKey, '');
-        
+        const imgUrl = getVal('Cat_Img_' + c.replace(/\s+/g, '_'), '');
         let innerHtml = '';
         if (imgUrl) {
-            // Logica Testo/Immagine
-            if (layout === 'grid') {
-                innerHtml = `
-                    <div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-grid" loading="lazy"></div>
-                    <div class="cat-text-wrapper"><span class="cat-text">${escapeHTML(c)}</span></div>
-                `;
-            } else {
-                innerHtml = `
-                    <div class="cat-text-wrapper"><span class="cat-text">${escapeHTML(c)}</span></div>
-                    <div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-list" loading="lazy"></div>
-                `;
-            }
+            if (layout === 'grid') innerHtml = `<div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-grid" loading="lazy"></div><div class="cat-text-wrapper"><span class="cat-text">${escapeHTML(c)}</span></div>`;
+            else innerHtml = `<div class="cat-text-wrapper"><span class="cat-text">${escapeHTML(c)}</span></div><div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-list" loading="lazy"></div>`;
         } else {
             innerHtml = `<div class="cat-text-wrapper" style="width:100%;"><span class="cat-text">${escapeHTML(c)}</span></div>`;
         }
-
         container.innerHTML += `<div onclick="renderLevel3('${escapeJS(m)}','${escapeJS(c)}')" class="cat-card layout-${layout}">${innerHtml}</div>`;
     });
-    
-    navigationStack.push('page-categories');
-    showPage('page-categories');
+    navigationStack.push('page-categories'); showPage('page-categories');
 }
 
 function toggleFilter(filterType) {
@@ -284,6 +260,7 @@ function toggleFilter(filterType) {
     renderLevel3(currentMacro, currentCat, true);
 }
 
+// MODULO 10: RENDER PIATTI E BOTTONE AR
 function renderLevel3(m, c, isFiltering = false) {
     currentMacro = m; currentCat = c;
     if (!isFiltering) activeFilters = []; 
@@ -318,7 +295,22 @@ function renderLevel3(m, c, isFiltering = false) {
         if(isTruthy(i.vegan)) badges += `<span class="badge badge-vegan">Vegano</span>`;
         if(isTruthy(i.veg)) badges += `<span class="badge badge-veg">Vegetariano</span>`;
         const badgeHtml = badges ? `<div class="badge-container">${badges}</div>` : '';
-        container.innerHTML += `<div class="menu-card item-card"><div style="flex-grow:1;"><strong style="font-size:18px;">${escapeHTML(i.name)}</strong><br><span style="color:#6b7280; font-size:14px; display:block; margin-top:4px;">${escapeHTML(i.desc)}</span><span style="color:#4f46e5; font-weight:bold; font-size:16px; display:block; margin-top:6px;">${escapeHTML(i.price)}</span>${badgeHtml}</div>${i.photo ? `<img src="${escapeHTML(i.photo)}" class="item-photo" style="margin-left: 10px;">` : ''}</div>`;
+        
+        // Creazione Bottone AR Elegante con icona 3D
+        const arHtml = i.ar ? `<a href="${escapeHTML(i.ar)}" target="_blank" class="ar-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Vedi Piatto</a>` : '';
+
+        // Struttura HTML unificata per le classi CSS dinamiche
+        container.innerHTML += `
+        <div class="menu-card item-card">
+            <div style="flex-grow:1;">
+                <div class="item-name">${escapeHTML(i.name)}</div>
+                <div class="item-desc">${escapeHTML(i.desc)}</div>
+                <div class="item-price">${escapeHTML(i.price)}</div>
+                ${badgeHtml}
+                ${arHtml}
+            </div>
+            ${i.photo ? `<img src="${escapeHTML(i.photo)}" class="item-photo" style="margin-left: 10px;" loading="lazy">` : ''}
+        </div>`;
     });
 
     if(!isFiltering) { navigationStack.push('page-items'); showPage('page-items'); }
@@ -327,7 +319,6 @@ function renderLevel3(m, c, isFiltering = false) {
 function showPage(p) {
     ['page-macro','page-categories','page-items'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.add('hidden'); });
     document.getElementById(p).classList.remove('hidden');
-    
     const backBtn = document.getElementById('back-button');
     const wrapper = document.getElementById('header-content-wrapper');
     const align = getVal('Logo_Align', 'center').toLowerCase();
@@ -337,7 +328,6 @@ function showPage(p) {
         if (p === 'page-macro') { backBtn.classList.remove('active'); if(wrapper) wrapper.style.paddingLeft = '0px'; } 
         else { backBtn.classList.add('active'); if(wrapper && align === 'left') wrapper.style.paddingLeft = '50px'; }
     }
-
     if (subHeader) {
         if (p === 'page-items') subHeader.style.display = 'flex';
         else subHeader.style.display = 'none';
