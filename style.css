@@ -14,6 +14,7 @@
     --macro-align-h: center;
     --back-bg: #111827;
     --back-color: #ffffff;
+    --back-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
 
 body {
@@ -51,12 +52,11 @@ body {
 #logo-container { width: 100%; display: flex; align-items: center; }
 #subtitle-container { width: 100%; display: none; line-height: 1.4; word-wrap: break-word; }
 
-/* TASTO INDIETRO - Versione Micro (25% più piccolo, vicino al bordo) */
 #back-button {
     position: fixed;
-    left: 8px; /* Avvicinato al bordo sinistro */
-    width: 34px; /* Ridotto da 44px */
-    height: 34px; /* Ridotto da 44px */
+    left: 8px; 
+    width: 34px; 
+    height: 34px; 
     background: var(--back-bg);
     color: var(--back-color);
     display: none;
@@ -64,18 +64,17 @@ body {
     justify-content: center;
     border-radius: 50%;
     border: none;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    box-shadow: var(--back-shadow); /* Ombra dinamica */
     cursor: pointer;
     z-index: 1000;
     transition: opacity 0.2s;
 }
 #back-button.active { display: flex; }
-#back-button svg { width: 16px !important; height: 16px !important; } /* Icona rimpicciolita */
+#back-button svg { width: 16px !important; height: 16px !important; } 
 
 #main-content { padding-top: 100px; transition: padding-top 0.2s ease; }
 .container { max-width: 28rem; margin: 0 auto; padding: 0 1.25rem 2.5rem; }
 
-/* MACRO E CARD */
 .macro-container { display: grid; grid-template-columns: repeat(var(--macro-cols), 1fr); gap: 1rem; }
 .macro-card { 
     height: var(--macro-height); border-radius: 1.25rem; background-size: cover; background-position: center; 
