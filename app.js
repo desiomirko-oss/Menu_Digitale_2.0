@@ -1,4 +1,4 @@
-const VERSION = "11.5-TRANSLATE-RESTRICTED-PURE";
+const VERSION = "11.9-MASTER-TRANSLATE";
 console.log("App Version: " + VERSION);
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -74,24 +74,36 @@ async function fetchConfig() {
     } catch(e) { console.error(e); }
 }
 
-// --- TRADUTTORE INTELLIGENTE CON CONTROLLO LINGUE ---
+// --- TRADUTTORE INTELLIGENTE (REGOLE RIGIDE) ---
 function setupAutoTranslate() {
-    const sourceLang = getVal('Lang_Source', 'it').toLowerCase(); 
+    // Legge la lingua del menu (default: spagnolo)
+    const sourceLang = getVal('Lang_Source', 'es').toLowerCase(); 
     const targetLangsStr = getVal('Lang_Targets', 'ALL').toUpperCase(); 
     
+    // Rileva la lingua del telefono (es: 'it')
     let userLang = navigator.language || navigator.userLanguage;
     userLang = userLang.slice(0, 2).toLowerCase();
 
-    // 1. Se lingua telefono identica a menu, non tradurre
-    if (userLang === sourceLang) return; 
+    console.log(`[Translate Check] Menu: ${sourceLang} | User: ${userLang} | Targets: ${targetLangsStr}`);
 
-    // 2. Controllo restrizioni da Google Sheets
-    if (targetLangsStr !== 'ALL') {
-        const allowedLangs = targetLangsStr.toLowerCase().split(',').map(l => l.trim());
-        if (!allowedLangs.includes(userLang)) return;
+    // REGOLA 1: Se la lingua è uguale, spegni il motore.
+    if (userLang === sourceLang) {
+        console.log("Stessa lingua rilevata. Traduzione ignorata.");
+        return; 
     }
 
-    // Scudo Anti-Banner
+    // REGOLA 2: Se ci sono limiti, spegni il motore per le lingue non autorizzate.
+    if (targetLangsStr !== 'ALL') {
+        const allowedLangs = targetLangsStr.toLowerCase().split(',').map(l => l.trim());
+        if (!allowedLangs.includes(userLang)) {
+            console.log(`Lingua ${userLang} non autorizzata. Traduzione ignorata.`);
+            return;
+        }
+    }
+
+    console.log("Avvio traduzione invisibile in background...");
+
+    // Scudo Anti-Banner Google
     const antiBannerStyle = document.createElement('style');
     antiBannerStyle.innerHTML = `
         iframe.goog-te-banner-frame, .goog-te-banner-frame { display: none !important; visibility: hidden !important; height: 0 !important; width: 0 !important; border: none !important; }
@@ -103,9 +115,9 @@ function setupAutoTranslate() {
     `;
     document.head.appendChild(antiBannerStyle);
 
-    // Forza la traduzione invisibile
-    document.cookie = `googtrans=/${sourceLang}/${userLang}; path=/`;
-    document.cookie = `googtrans=/${sourceLang}/${userLang}; domain=${window.location.hostname}; path=/`;
+    // Forza i cookie eliminando vecchie preferenze bloccate
+    document.cookie = `googtrans=/${sourceLang}/${userLang}; path=/; expires=Session`;
+    document.cookie = `googtrans=/${sourceLang}/${userLang}; domain=${window.location.hostname}; path=/; expires=Session`;
 
     const widgetDiv = document.createElement('div');
     widgetDiv.id = 'google_translate_element';
@@ -113,7 +125,10 @@ function setupAutoTranslate() {
     document.body.appendChild(widgetDiv);
 
     window.googleTranslateElementInit = function() { 
-        new google.translate.TranslateElement({ pageLanguage: sourceLang, autoDisplay: false }, 'google_translate_element'); 
+        new google.translate.TranslateElement({ 
+            pageLanguage: sourceLang, 
+            autoDisplay: false 
+        }, 'google_translate_element'); 
     };
 
     const script = document.createElement('script');
@@ -174,6 +189,7 @@ function applyConfig() {
     logoCont.style.marginTop = getVal('Logo_Margin_Top', '0px');
     logoCont.style.marginBottom = '0px'; 
     if (logoUrl) {
+        // REGOLA 1: LOGO PROTETTO
         logoCont.innerHTML = `<img src="${escapeHTML(logoUrl)}" id="app-logo" style="max-height:${escapeHTML(getVal('Logo_Height', '80px'))}; object-fit:contain;" translate="no" class="notranslate">`;
         document.getElementById('app-logo').onload = updateLayout;
     }
@@ -257,7 +273,7 @@ async function fetchMenu() {
 function renderLevel1() {
     const container = document.getElementById('macro-layout-container');
     const macros = [...new Set(fullData.map(i => i.macro))];
-    container.innerHTML = '';
+    container.className = 'macro-container'; container.innerHTML = '';
     macros.forEach(m => {
         const searchKey = 'Macro_Img_' + m.replace(/\s+/g, '_');
         const imgUrl = getVal(searchKey, '');
@@ -353,7 +369,7 @@ function renderLevel3(m, c, isFiltering = false) {
                 </a>
             </div>` : '';
 
-        // PROTEZIONE TRADUZIONE SU NOME E PREZZO
+        // REGOLA 2 E 3: NOME E PREZZO PROTETTI DA TRADUZIONE
         container.innerHTML += `
         <div class="menu-card">
             <div class="item-card">
