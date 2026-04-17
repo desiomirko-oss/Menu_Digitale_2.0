@@ -1,4 +1,4 @@
-const VERSION = "11.5-TRANSLATE-RESTRICTED";
+const VERSION = "11.6-PWA-FINAL";
 console.log("App Version: " + VERSION);
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -48,68 +48,69 @@ function parseColor(colorVal, opacityVal = 1) {
 
 // --- INIT ---
 async function init() {
+    // Iniezione Sub-Header
     if (!document.getElementById('sub-header')) {
-        const sh = document.createElement('div');
-        sh.id = 'sub-header';
+        const sh = document.createElement('div'); sh.id = 'sub-header';
         sh.innerHTML = `<h2 id="sub-header-title"></h2><div id="sub-header-filters" class="filters-container"></div>`;
         document.body.appendChild(sh);
     }
+    // Iniezione Banner PWA (Semplificato)
+    if (!document.getElementById('pwa-prompt')) {
+        const pwa = document.createElement('div'); pwa.id = 'pwa-prompt';
+        pwa.innerHTML = `
+            <div class="pwa-box">
+                <button class="pwa-close" onclick="closePWA()">×</button>
+                <div class="pwa-title">Installa l'App</div>
+                <div class="pwa-instruction">Tocca <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;display:inline;vertical-align:middle;color:#007aff;"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg> e seleziona <b>Aggiungi a Home</b></div>
+            </div>`;
+        document.body.appendChild(pwa);
+    }
+
     if (!SHEET_ID) return;
     await fetchConfig(); 
     applyConfig();       
     setupAutoTranslate(); 
     await fetchMenu();
+    checkPWA(); // Controlla se mostrare il banner
 }
 
-async function fetchConfig() {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=config&t=${Date.now()}`;
-    try {
-        const response = await fetch(url);
-        let csv = await response.text();
-        csv.replace(/^\ufeff/, '').split(/\r?\n/).forEach(row => {
-            if(!row.trim()) return;
-            const cols = safeParseCSVRow(row);
-            if(cols.length >= 2 && cols[0].toLowerCase() !== 'property') appConfig[cols[0]] = cols[1];
-        });
-    } catch(e) { console.error(e); }
+// --- LOGICA PWA ---
+function closePWA() {
+    localStorage.setItem('pwa_dismissed', 'true');
+    document.getElementById('pwa-prompt').classList.remove('visible');
+}
+function checkPWA() {
+    if (!isTruthy(getVal('PWA_Install_Prompt', 'FALSE'))) return;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (isStandalone || localStorage.getItem('pwa_dismissed')) return;
+
+    setTimeout(() => {
+        const pwaEl = document.getElementById('pwa-prompt');
+        if (pwaEl) pwaEl.classList.add('visible');
+    }, 3000);
 }
 
-// --- TRADUTTORE INTELLIGENTE CON CONTROLLO LINGUE PERMESSE ---
+// --- TRADUTTORE (VERSIONE KILLER BANNER) ---
 function setupAutoTranslate() {
     const sourceLang = getVal('Lang_Source', 'it').toLowerCase(); 
     const targetLangsStr = getVal('Lang_Targets', 'ALL').toUpperCase(); 
-    
-    let userLang = navigator.language || navigator.userLanguage;
-    userLang = userLang.slice(0, 2).toLowerCase();
+    let userLang = (navigator.language || navigator.userLanguage).slice(0, 2).toLowerCase();
 
-    // REGOLA 1: Se la lingua del telefono è identica a quella del menu, non tradurre.
     if (userLang === sourceLang) return; 
-
-    // REGOLA 2: Se abbiamo limitato le lingue su Google Sheets, verifica che l'utente sia abilitato.
     if (targetLangsStr !== 'ALL') {
-        const allowedLangs = targetLangsStr.toLowerCase().split(',').map(l => l.trim());
-        if (!allowedLangs.includes(userLang)) {
-            console.log(`Lingua del dispositivo (${userLang}) non inclusa nelle lingue autorizzate. Traduzione ignorata.`);
-            return; // Blocca la traduzione ed esce
-        }
+        const allowed = targetLangsStr.toLowerCase().split(',').map(l => l.trim());
+        if (!allowed.includes(userLang)) return;
     }
 
-    // Se passa i controlli, inietta lo scudo anti-banner
     const antiBannerStyle = document.createElement('style');
     antiBannerStyle.innerHTML = `
-        iframe.goog-te-banner-frame, .goog-te-banner-frame { display: none !important; visibility: hidden !important; height: 0 !important; width: 0 !important; }
+        iframe.goog-te-banner-frame, .goog-te-banner-frame { display: none !important; height: 0 !important; }
         body { top: 0px !important; position: static !important; }
-        .skiptranslate { display: none !important; }
         #google_translate_element { display: none !important; }
-        .goog-tooltip { display: none !important; }
-        .goog-text-highlight { background-color: transparent !important; border: none !important; box-shadow: none !important; }
     `;
     document.head.appendChild(antiBannerStyle);
 
-    // Forza i cookie di Google Translate
     document.cookie = `googtrans=/${sourceLang}/${userLang}; path=/`;
-    document.cookie = `googtrans=/${sourceLang}/${userLang}; domain=${window.location.hostname}; path=/`;
-
     const widgetDiv = document.createElement('div');
     widgetDiv.id = 'google_translate_element';
     widgetDiv.style.display = 'none';
@@ -123,15 +124,15 @@ function setupAutoTranslate() {
     script.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
     document.body.appendChild(script);
 
-    // Cecchino Javascript anti-margine
     const killerInterval = setInterval(() => {
         const frames = document.querySelectorAll('.goog-te-banner-frame, iframe.goog-te-banner-frame');
-        frames.forEach(f => { f.style.display = 'none'; f.style.height = '0px'; });
+        frames.forEach(f => f.style.display = 'none');
         if (document.body.style.top !== '0px') document.body.style.top = '0px';
     }, 50);
-    setTimeout(() => clearInterval(killerInterval), 6000);
+    setTimeout(() => clearInterval(killerInterval), 5000);
 }
 
+// --- CSS CONFIG ---
 function applyConfig() {
     const root = document.documentElement;
 
@@ -175,18 +176,16 @@ function applyConfig() {
     const align = getVal('Logo_Align', 'center').toLowerCase();
     logoCont.style.justifyContent = align === 'left' ? 'flex-start' : (align === 'right' ? 'flex-end' : 'center');
     logoCont.style.marginTop = getVal('Logo_Margin_Top', '0px');
-    logoCont.style.marginBottom = '0px'; 
     if (logoUrl) {
         logoCont.innerHTML = `<img src="${escapeHTML(logoUrl)}" id="app-logo" style="max-height:${escapeHTML(getVal('Logo_Height', '80px'))}; object-fit:contain;" translate="no" class="notranslate">`;
         document.getElementById('app-logo').onload = updateLayout;
     }
 
     const sub = document.getElementById('subtitle-container');
-    const subText = getVal('Subtitle_Text', '');
     root.style.setProperty('--subtitle-color', parseColor(getVal('Subtitle_Color', '#6b7280')));
     root.style.setProperty('--subtitle-font', getVal('Subtitle_Font', 'sans-serif'));
-    if (subText !== '') {
-        sub.style.display = 'block'; sub.innerText = subText;
+    if (getVal('Subtitle_Text', '') !== '') {
+        sub.style.display = 'block'; sub.innerText = getVal('Subtitle_Text', '');
         sub.style.color = 'var(--subtitle-color)'; sub.style.fontSize = getVal('Subtitle_Size', '14px');
         sub.style.fontFamily = 'var(--subtitle-font)'; sub.style.fontWeight = isTruthy(getVal('Subtitle_Bold', 'FALSE')) ? 'bold' : 'normal';
         sub.style.textAlign = getVal('Subtitle_Align', 'center').toLowerCase(); sub.style.marginTop = getVal('Subtitle_Margin_Top', '5px');
@@ -234,7 +233,7 @@ function updateLayout() {
     }, 50);
 }
 
-// --- FETCH MENU ---
+// --- RENDER MENU ---
 async function fetchMenu() {
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=menu&t=${Date.now()}`;
     try {
@@ -260,7 +259,7 @@ async function fetchMenu() {
 function renderLevel1() {
     const container = document.getElementById('macro-layout-container');
     const macros = [...new Set(fullData.map(i => i.macro))];
-    container.className = 'macro-container'; container.innerHTML = '';
+    container.innerHTML = '';
     macros.forEach(m => {
         const searchKey = 'Macro_Img_' + m.replace(/\s+/g, '_');
         const imgUrl = getVal(searchKey, '');
@@ -275,7 +274,6 @@ function renderLevel2(m) {
     const cats = [...new Set(fullData.filter(i => i.macro === m).map(i => i.cat))];
     container.className = 'cat-container'; container.innerHTML = '';
     const layout = getVal('Cat_Layout', 'list').toLowerCase();
-
     cats.forEach(c => {
         const imgUrl = getVal('Cat_Img_' + c.replace(/\s+/g, '_'), '');
         let innerHtml = '';
@@ -287,10 +285,7 @@ function renderLevel2(m) {
         }
         container.innerHTML += `<div onclick="renderLevel3('${escapeJS(m)}','${escapeJS(c)}')" class="cat-card layout-${layout}">${innerHtml}</div>`;
     });
-    
-    if (navigationStack[navigationStack.length-1] !== 'page-categories') {
-        navigationStack.push('page-categories'); 
-    }
+    if (navigationStack[navigationStack.length-1] !== 'page-categories') navigationStack.push('page-categories'); 
     showPage('page-categories');
 }
 
@@ -302,123 +297,57 @@ function toggleFilter(filterType) {
 function renderLevel3(m, c, isFiltering = false) {
     currentMacro = m; currentCat = c;
     if (!isFiltering) activeFilters = []; 
-    
     const container = document.getElementById('page-items');
     container.innerHTML = '';
-    
     let allCategoryItems = fullData.filter(i => i.macro === m && i.cat === c);
-    
     if (!isFiltering) {
         document.getElementById('sub-header-title').innerText = c;
-        let filtersHtml = '';
-        
-        const isDrinks = m.toLowerCase().match(/bevand|bebid|drink/);
-        if (isDrinks) {
-            const hasNoAlc = allCategoryItems.some(i => isTruthy(i.noalc));
-            if(hasNoAlc) filtersHtml += `<button onclick="toggleFilter('noalc')" id="btn-noalc" class="filter-btn">Analcolico</button>`;
+        let fHtml = '';
+        if (m.toLowerCase().match(/bevand|bebid|drink/)) {
+            if(allCategoryItems.some(i => isTruthy(i.noalc))) fHtml += `<button onclick="toggleFilter('noalc')" id="btn-noalc" class="filter-btn">Analcolico</button>`;
         } else {
-            const hasGf = allCategoryItems.some(i => isTruthy(i.gf)); 
-            const hasVegan = allCategoryItems.some(i => isTruthy(i.vegan)); 
-            const hasVeg = allCategoryItems.some(i => isTruthy(i.veg));
-            if(hasGf) filtersHtml += `<button onclick="toggleFilter('gf')" id="btn-gf" class="filter-btn">Senza Glutine</button>`;
-            if(hasVegan) filtersHtml += `<button onclick="toggleFilter('vegan')" id="btn-vegan" class="filter-btn">Vegano</button>`;
-            if(hasVeg) filtersHtml += `<button onclick="toggleFilter('veg')" id="btn-veg" class="filter-btn">Vegetariano</button>`;
+            if(allCategoryItems.some(i => isTruthy(i.gf))) fHtml += `<button onclick="toggleFilter('gf')" id="btn-gf" class="filter-btn">Senza Glutine</button>`;
+            if(allCategoryItems.some(i => isTruthy(i.vegan))) fHtml += `<button onclick="toggleFilter('vegan')" id="btn-vegan" class="filter-btn">Vegano</button>`;
+            if(allCategoryItems.some(i => isTruthy(i.veg))) fHtml += `<button onclick="toggleFilter('veg')" id="btn-veg" class="filter-btn">Vegetariano</button>`;
         }
-        document.getElementById('sub-header-filters').innerHTML = filtersHtml;
+        document.getElementById('sub-header-filters').innerHTML = fHtml;
     }
-
     ['gf', 'vegan', 'veg', 'noalc'].forEach(f => {
-        const btn = document.getElementById(`btn-${f}`);
-        if(btn) { activeFilters.includes(f) ? btn.classList.add('active') : btn.classList.remove('active'); }
+        const b = document.getElementById(`btn-${f}`);
+        if(b) activeFilters.includes(f) ? b.classList.add('active') : b.classList.remove('active');
     });
+    let items = allCategoryItems;
+    if (activeFilters.length > 0) items = items.filter(i => activeFilters.every(f => isTruthy(i[f])));
+    if (items.length === 0) container.innerHTML = `<div style="text-align:center; padding: 20px; color:#9ca3af; font-weight:bold;">Nessun piatto trovato.</div>`;
 
-    let itemsToShow = allCategoryItems;
-    if (activeFilters.length > 0) itemsToShow = itemsToShow.filter(i => activeFilters.every(f => isTruthy(i[f])));
-    if (itemsToShow.length === 0) container.innerHTML = `<div style="text-align:center; padding: 20px; color:#9ca3af; font-weight:bold;">Nessun piatto trovato.</div>`;
-
-    itemsToShow.forEach(i => {
-        let badges = '';
-        if(isTruthy(i.gf)) badges += `<span class="badge badge-gf">Senza Glutine</span>`;
-        if(isTruthy(i.vegan)) badges += `<span class="badge badge-vegan">Vegano</span>`;
-        if(isTruthy(i.veg)) badges += `<span class="badge badge-veg">Vegetariano</span>`;
-        if(isTruthy(i.noalc)) badges += `<span class="badge badge-noalc">Analcolico</span>`;
-        
-        const badgeHtml = badges ? `<div class="badge-container">${badges}</div>` : '';
-        
-        const arHtml = i.ar ? `
-            <div style="width: 100%; display: flex; justify-content: center; margin-top: 15px;">
-                <a href="${escapeHTML(i.ar)}" target="_blank" class="ar-btn">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                    </svg> Vedi Piatto
-                </a>
-            </div>` : '';
-
-        container.innerHTML += `
-        <div class="menu-card">
-            <div class="item-card">
-                <div style="flex-grow:1;">
-                    <div class="item-name notranslate">${escapeHTML(i.name)}</div>
-                    <div class="item-desc">${escapeHTML(i.desc)}</div>
-                    <div class="item-price notranslate">${escapeHTML(i.price)}</div>
-                </div>
-                ${i.photo ? `<img src="${escapeHTML(i.photo)}" class="item-photo" style="margin-left: 10px;" loading="lazy">` : ''}
-            </div>
-            ${badgeHtml}
-            ${arHtml}
-        </div>`;
+    items.forEach(i => {
+        let b = '';
+        if(isTruthy(i.gf)) b += `<span class="badge badge-gf">Senza Glutine</span>`;
+        if(isTruthy(i.vegan)) b += `<span class="badge badge-vegan">Vegano</span>`;
+        if(isTruthy(i.veg)) b += `<span class="badge badge-veg">Vegetariano</span>`;
+        if(isTruthy(i.noalc)) b += `<span class="badge badge-noalc">Analcolico</span>`;
+        const ar = i.ar ? `<div style="width: 100%; display: flex; justify-content: center; margin-top: 15px;"><a href="${escapeHTML(i.ar)}" target="_blank" class="ar-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Vedi Piatto</a></div>` : '';
+        container.innerHTML += `<div class="menu-card"><div class="item-card"><div style="flex-grow:1;"><div class="item-name notranslate">${escapeHTML(i.name)}</div><div class="item-desc">${escapeHTML(i.desc)}</div><div class="item-price notranslate">${escapeHTML(i.price)}</div></div>${i.photo ? `<img src="${escapeHTML(i.photo)}" class="item-photo" style="margin-left: 10px;" loading="lazy">` : ''}</div>${b ? `<div class="badge-container">${b}</div>` : ''}${ar}</div>`;
     });
-
-    if(!isFiltering) { 
-        if (navigationStack[navigationStack.length-1] !== 'page-items') {
-            navigationStack.push('page-items'); 
-        }
-        showPage('page-items'); 
-    }
+    if(!isFiltering && navigationStack[navigationStack.length-1] !== 'page-items') navigationStack.push('page-items'); 
+    showPage('page-items'); 
 }
 
 function showPage(p) {
-    const pageIds = ['page-macro', 'page-categories', 'page-items'];
-    
-    pageIds.forEach(id => { 
-        const el = document.getElementById(id); 
-        if(el) el.classList.add('hidden'); 
-    });
-    
-    const target = document.getElementById(p);
-    if(target) target.classList.remove('hidden');
-    
+    ['page-macro', 'page-categories', 'page-items'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.add('hidden'); });
+    const target = document.getElementById(p); if(target) target.classList.remove('hidden');
     const backBtn = document.getElementById('back-button');
     const wrapper = document.getElementById('header-content-wrapper');
     const align = getVal('Logo_Align', 'center').toLowerCase();
     const subHeader = document.getElementById('sub-header');
-
     if (backBtn) {
-        if (p === 'page-macro') { 
-            backBtn.classList.remove('active'); 
-            if(wrapper) wrapper.style.paddingLeft = '0px'; 
-        } else { 
-            backBtn.classList.add('active'); 
-            if(wrapper && align === 'left') wrapper.style.paddingLeft = '50px'; 
-        }
+        if (p === 'page-macro') { backBtn.classList.remove('active'); if(wrapper) wrapper.style.paddingLeft = '0px'; } 
+        else { backBtn.classList.add('active'); if(wrapper && align === 'left') wrapper.style.paddingLeft = '50px'; }
     }
-    
-    if (subHeader) {
-        if (p === 'page-items') subHeader.style.display = 'flex';
-        else subHeader.style.display = 'none';
-    }
-    
-    updateLayout(); 
-    window.scrollTo({top: 0, behavior: 'instant'});
+    if (subHeader) subHeader.style.display = (p === 'page-items') ? 'flex' : 'none';
+    updateLayout(); window.scrollTo({top: 0, behavior: 'instant'});
 }
 
-function goBack() { 
-    if(navigationStack.length > 1) { 
-        navigationStack.pop(); 
-        showPage(navigationStack[navigationStack.length-1]); 
-    } 
-}
+function goBack() { if(navigationStack.length > 1) { navigationStack.pop(); showPage(navigationStack[navigationStack.length-1]); } }
 
 init();
