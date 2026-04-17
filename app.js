@@ -1,4 +1,4 @@
-const VERSION = "12.2-SUPER-MOTORE-BLINDATO";
+const VERSION = "12.3-TRANSLATING-FILTERS";
 console.log("App Version: " + VERSION);
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -44,6 +44,17 @@ function parseColor(colorVal, opacityVal = 1) {
         }
     }
     return c; 
+}
+
+// 🆕 FUNZIONE LABELS FILTRI (Prende i nomi da Config per tradurli bene)
+function getFilterLabels() {
+    return {
+        gf: getVal('Filter_Name_GF', 'Senza Glutine'),
+        vegan: getVal('Filter_Name_Vegan', 'Vegano'),
+        veg: getVal('Filter_Name_Veg', 'Vegetariano'),
+        noalc: getVal('Filter_Name_NoAlc', 'Analcolico'),
+        bio: getVal('Filter_Name_Bio', 'Bio')
+    };
 }
 
 // --- INIT ---
@@ -251,7 +262,6 @@ function updateLayout() {
     }, 50);
 }
 
-// --- FETCH MENU E ROUTING (MENU_LEVELS) ---
 async function fetchMenu() {
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=menu&t=${Date.now()}`;
     try {
@@ -262,7 +272,6 @@ async function fetchMenu() {
         for(let i=1; i<rows.length; i++){
             const c = safeParseCSVRow(rows[i]);
             if(c.length >= 3 && c[0]) {
-                // Lettura rigida e blindata delle colonne
                 fullData.push({ 
                     _id: i, macro: c[0], cat: c[1], name: c[2], desc: c[3], allerg: c[4], price: c[5], 
                     gf: c[6], vegan: c[7], veg: c[8], noalc: c[9], bio: c[10], active: c[11]||'TRUE', photo: c[12], ar: c[13], details: c[14] || '' 
@@ -272,18 +281,17 @@ async function fetchMenu() {
         fullData = fullData.filter(i => isTruthy(i.active));
         document.getElementById('loading-screen').classList.add('hidden');
         
-        // 🆕 Lettura Menu_Levels
         const levels = parseInt(getVal('Menu_Levels', '3')) || 3;
         
         if (levels === 1) {
             navigationStack = ['page-items'];
-            renderLevel3('', ''); // Lista piatti totale
+            renderLevel3('', ''); 
         } else if (levels === 2) {
             navigationStack = ['page-categories'];
-            renderLevel2(''); // Lista categorie totale
+            renderLevel2(''); 
         } else {
             navigationStack = ['page-macro'];
-            renderLevel1(); // Standard 3 livelli
+            renderLevel1(); 
         }
 
     } catch(e) { console.error(e); }
@@ -306,7 +314,6 @@ function renderLevel1() {
 function renderLevel2(m) {
     const container = document.getElementById('page-categories');
     
-    // 🆕 Se m === '' (livello 2 diretto), prendi tutte le categorie. Altrimenti filtra per macro.
     let cats = m === '' ? [...new Set(fullData.map(i => i.cat))] : [...new Set(fullData.filter(i => i.macro === m).map(i => i.cat))];
     
     container.className = 'cat-container'; container.innerHTML = '';
@@ -342,31 +349,25 @@ function renderLevel3(m, c, isFiltering = false) {
     const container = document.getElementById('page-items');
     container.innerHTML = '';
     
-    // 🆕 Selezione intelligente degli items in base al livello
     let allCategoryItems = fullData;
     if (m !== '' && c !== '') allCategoryItems = fullData.filter(i => i.macro === m && i.cat === c);
     else if (m === '' && c !== '') allCategoryItems = fullData.filter(i => i.cat === c);
+    
+    const labels = getFilterLabels(); // 🆕 Carica i nomi personalizzati
     
     if (!isFiltering) {
         let titleText = c !== '' ? c : (m !== '' ? m : getVal('Subtitle_Text', 'Menu'));
         document.getElementById('sub-header-title').innerText = titleText;
         
         let filtersHtml = '';
+        const tags = ['noalc', 'gf', 'vegan', 'veg', 'bio'];
         
-        // Controllo se c'è almeno un "drink" nel macro o nella categoria
-        const checkStr = (m + ' ' + c).toLowerCase();
-        const isDrinks = checkStr.match(/bevand|bebid|drink/);
+        tags.forEach(t => {
+            if(allCategoryItems.some(i => isTruthy(i[t]))) {
+                filtersHtml += `<button onclick="toggleFilter('${t}')" id="btn-${t}" class="filter-btn">${escapeHTML(labels[t])}</button>`;
+            }
+        });
         
-        if (isDrinks) {
-            if(allCategoryItems.some(i => isTruthy(i.noalc))) filtersHtml += `<button onclick="toggleFilter('noalc')" id="btn-noalc" class="filter-btn">Analcolico</button>`;
-            if(allCategoryItems.some(i => isTruthy(i.gf))) filtersHtml += `<button onclick="toggleFilter('gf')" id="btn-gf" class="filter-btn">Senza Glutine</button>`;
-            if(allCategoryItems.some(i => isTruthy(i.bio))) filtersHtml += `<button onclick="toggleFilter('bio')" id="btn-bio" class="filter-btn">Bio</button>`;
-        } else {
-            if(allCategoryItems.some(i => isTruthy(i.gf))) filtersHtml += `<button onclick="toggleFilter('gf')" id="btn-gf" class="filter-btn">Senza Glutine</button>`;
-            if(allCategoryItems.some(i => isTruthy(i.vegan))) filtersHtml += `<button onclick="toggleFilter('vegan')" id="btn-vegan" class="filter-btn">Vegano</button>`;
-            if(allCategoryItems.some(i => isTruthy(i.veg))) filtersHtml += `<button onclick="toggleFilter('veg')" id="btn-veg" class="filter-btn">Vegetariano</button>`;
-            if(allCategoryItems.some(i => isTruthy(i.bio))) filtersHtml += `<button onclick="toggleFilter('bio')" id="btn-bio" class="filter-btn">Bio</button>`;
-        }
         document.getElementById('sub-header-filters').innerHTML = filtersHtml;
     }
 
@@ -381,11 +382,12 @@ function renderLevel3(m, c, isFiltering = false) {
 
     itemsToShow.forEach(i => {
         let badges = '';
-        if(isTruthy(i.gf)) badges += `<span class="badge badge-gf">Senza Glutine</span>`;
-        if(isTruthy(i.vegan)) badges += `<span class="badge badge-vegan">Vegano</span>`;
-        if(isTruthy(i.veg)) badges += `<span class="badge badge-veg">Vegetariano</span>`;
-        if(isTruthy(i.noalc)) badges += `<span class="badge badge-noalc">Analcolico</span>`;
-        if(isTruthy(i.bio)) badges += `<span class="badge badge-bio">Bio</span>`; 
+        // 🆕 Inietta i nomi presi dal Config nei Badge
+        if(isTruthy(i.gf)) badges += `<span class="badge badge-gf">${escapeHTML(labels.gf)}</span>`;
+        if(isTruthy(i.vegan)) badges += `<span class="badge badge-vegan">${escapeHTML(labels.vegan)}</span>`;
+        if(isTruthy(i.veg)) badges += `<span class="badge badge-veg">${escapeHTML(labels.veg)}</span>`;
+        if(isTruthy(i.noalc)) badges += `<span class="badge badge-noalc">${escapeHTML(labels.noalc)}</span>`;
+        if(isTruthy(i.bio)) badges += `<span class="badge badge-bio">${escapeHTML(labels.bio)}</span>`; 
         
         const hasDetails = i.details.trim() !== '';
         const cardClass = hasDetails ? 'menu-card clickable-card' : 'menu-card';
@@ -441,13 +443,14 @@ function openItemDetails(id) {
     if (!item) return;
 
     const container = document.getElementById('page-item-details');
+    const labels = getFilterLabels(); // 🆕 Carica i nomi personalizzati
     
     let badges = '';
-    if(isTruthy(item.gf)) badges += `<span class="badge badge-gf">Senza Glutine</span>`;
-    if(isTruthy(item.vegan)) badges += `<span class="badge badge-vegan">Vegano</span>`;
-    if(isTruthy(item.veg)) badges += `<span class="badge badge-veg">Vegetariano</span>`;
-    if(isTruthy(item.noalc)) badges += `<span class="badge badge-noalc">Analcolico</span>`;
-    if(isTruthy(item.bio)) badges += `<span class="badge badge-bio">Bio</span>`; 
+    if(isTruthy(item.gf)) badges += `<span class="badge badge-gf">${escapeHTML(labels.gf)}</span>`;
+    if(isTruthy(item.vegan)) badges += `<span class="badge badge-vegan">${escapeHTML(labels.vegan)}</span>`;
+    if(isTruthy(item.veg)) badges += `<span class="badge badge-veg">${escapeHTML(labels.veg)}</span>`;
+    if(isTruthy(item.noalc)) badges += `<span class="badge badge-noalc">${escapeHTML(labels.noalc)}</span>`;
+    if(isTruthy(item.bio)) badges += `<span class="badge badge-bio">${escapeHTML(labels.bio)}</span>`; 
     const badgeHtml = badges ? `<div class="badge-container" style="justify-content:center; margin-bottom:15px;"><div class="badge-group">${badges}</div></div>` : '';
 
     const arHtml = item.ar ? `<div style="width: 100%; display: flex; justify-content: center; margin-top: 20px;"><a href="${escapeHTML(item.ar)}" target="_blank" class="ar-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Vedi Piatto in AR</a></div>` : '';
@@ -493,7 +496,6 @@ function showPage(p) {
     const subHeader = document.getElementById('sub-header');
 
     if (backBtn) {
-        // 🆕 Nasconde il pulsante Indietro se ci troviamo nel livello di base configurato
         if (p === navigationStack[0]) { 
             backBtn.classList.remove('active'); 
             if(wrapper) wrapper.style.paddingLeft = '0px'; 
