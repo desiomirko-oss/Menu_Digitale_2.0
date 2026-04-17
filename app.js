@@ -1,4 +1,4 @@
-const VERSION = "11.3-SMART-TRANSLATE";
+const VERSION = "11.4-TRANSLATE-FILTERED";
 console.log("App Version: " + VERSION);
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -51,13 +51,14 @@ async function init() {
     if (!document.getElementById('sub-header')) {
         const sh = document.createElement('div');
         sh.id = 'sub-header';
+        // NIENTE notranslate QUI: Il titolo del sub-header (Categoria) SI DEVE tradurre
         sh.innerHTML = `<h2 id="sub-header-title"></h2><div id="sub-header-filters" class="filters-container"></div>`;
         document.body.appendChild(sh);
     }
     if (!SHEET_ID) return;
     await fetchConfig(); 
     applyConfig();       
-    setupAutoTranslate(); // Chiamato dopo fetchConfig per leggere Lang_Source
+    setupAutoTranslate(); 
     await fetchMenu();
 }
 
@@ -74,17 +75,29 @@ async function fetchConfig() {
     } catch(e) { console.error(e); }
 }
 
-// --- TRADUTTORE INTELLIGENTE ---
+// --- TRADUTTORE INTELLIGENTE CON SCUDO ANTI-BANNER INCORPORATO ---
 function setupAutoTranslate() {
-    const sourceLang = getVal('Lang_Source', 'it').toLowerCase(); // Legge lingua base
+    const sourceLang = getVal('Lang_Source', 'it').toLowerCase(); 
     let userLang = navigator.language || navigator.userLanguage;
     userLang = userLang.slice(0, 2).toLowerCase();
 
-    // Se il telefono ha la stessa lingua del menu, NON TRADURRE
-    if (userLang === sourceLang) return;
+    if (userLang === sourceLang) return; // Stessa lingua: nessuna traduzione
 
-    // Altrimenti, imposta i cookie forzati e avvia Google Translate
+    // Inietta lo scudo CSS direttamente via JS per distruggere il banner
+    const antiBannerStyle = document.createElement('style');
+    antiBannerStyle.innerHTML = `
+        iframe.goog-te-banner-frame, .goog-te-banner-frame { display: none !important; visibility: hidden !important; height: 0 !important; width: 0 !important; }
+        body { top: 0px !important; position: static !important; }
+        .skiptranslate { display: none !important; }
+        #google_translate_element { display: none !important; }
+        .goog-tooltip { display: none !important; }
+        .goog-text-highlight { background-color: transparent !important; border: none !important; box-shadow: none !important; }
+    `;
+    document.head.appendChild(antiBannerStyle);
+
+    // Forza traduzione
     document.cookie = `googtrans=/${sourceLang}/${userLang}; path=/`;
+    document.cookie = `googtrans=/${sourceLang}/${userLang}; domain=${window.location.hostname}; path=/`;
 
     const widgetDiv = document.createElement('div');
     widgetDiv.id = 'google_translate_element';
@@ -99,14 +112,13 @@ function setupAutoTranslate() {
     script.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
     document.body.appendChild(script);
 
-    // Sistema di sicurezza anti-banner: rimette la pagina al suo posto per 5 secondi
+    // Cecchino Javascript: se Google tenta di forzare il margine della pagina, noi lo resettiamo
     const killerInterval = setInterval(() => {
-        const frames = document.querySelectorAll('.goog-te-banner-frame');
-        frames.forEach(f => { f.style.display = 'none'; f.style.visibility = 'hidden'; f.style.height = '0px'; });
+        const frames = document.querySelectorAll('.goog-te-banner-frame, iframe.goog-te-banner-frame');
+        frames.forEach(f => { f.style.display = 'none'; f.style.height = '0px'; });
         if (document.body.style.top !== '0px') document.body.style.top = '0px';
-        if (document.documentElement.style.marginTop !== '0px') document.documentElement.style.marginTop = '0px';
     }, 50);
-    setTimeout(() => clearInterval(killerInterval), 5000);
+    setTimeout(() => clearInterval(killerInterval), 6000);
 }
 
 function applyConfig() {
@@ -154,7 +166,7 @@ function applyConfig() {
     logoCont.style.marginTop = getVal('Logo_Margin_Top', '0px');
     logoCont.style.marginBottom = '0px'; 
     if (logoUrl) {
-        // AGGIUNTO class="notranslate" per proteggere il logo
+        // IL LOGO È PROTETTO DALLA TRADUZIONE (class="notranslate")
         logoCont.innerHTML = `<img src="${escapeHTML(logoUrl)}" id="app-logo" style="max-height:${escapeHTML(getVal('Logo_Height', '80px'))}; object-fit:contain;" translate="no" class="notranslate">`;
         document.getElementById('app-logo').onload = updateLayout;
     }
@@ -243,8 +255,8 @@ function renderLevel1() {
         const searchKey = 'Macro_Img_' + m.replace(/\s+/g, '_');
         const imgUrl = getVal(searchKey, '');
         const bgStyle = imgUrl ? `background-image: url('${escapeHTML(imgUrl)}');` : '';
-        // MACRO TITLE NOTRANSLATE
-        container.innerHTML += `<div onclick="renderLevel2('${escapeJS(m)}')" class="macro-card" style="${bgStyle}"><div class="macro-overlay"></div><span class="macro-text-inside notranslate">${escapeHTML(m)}</span></div>`;
+        // NIENTE notranslate: Le macro si traducono!
+        container.innerHTML += `<div onclick="renderLevel2('${escapeJS(m)}')" class="macro-card" style="${bgStyle}"><div class="macro-overlay"></div><span class="macro-text-inside">${escapeHTML(m)}</span></div>`;
     });
     showPage('page-macro');
 }
@@ -258,17 +270,16 @@ function renderLevel2(m) {
     cats.forEach(c => {
         const imgUrl = getVal('Cat_Img_' + c.replace(/\s+/g, '_'), '');
         let innerHtml = '';
-        // CATEGORY TITLE NOTRANSLATE
+        // NIENTE notranslate: Le Categorie si traducono!
         if (imgUrl) {
-            if (layout === 'grid') innerHtml = `<div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-grid" loading="lazy"></div><div class="cat-text-wrapper"><span class="cat-text notranslate">${escapeHTML(c)}</span></div>`;
-            else innerHtml = `<div class="cat-text-wrapper"><span class="cat-text notranslate">${escapeHTML(c)}</span></div><div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-list" loading="lazy"></div>`;
+            if (layout === 'grid') innerHtml = `<div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-grid" loading="lazy"></div><div class="cat-text-wrapper"><span class="cat-text">${escapeHTML(c)}</span></div>`;
+            else innerHtml = `<div class="cat-text-wrapper"><span class="cat-text">${escapeHTML(c)}</span></div><div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-list" loading="lazy"></div>`;
         } else {
-            innerHtml = `<div class="cat-text-wrapper" style="width:100%;"><span class="cat-text notranslate">${escapeHTML(c)}</span></div>`;
+            innerHtml = `<div class="cat-text-wrapper" style="width:100%;"><span class="cat-text">${escapeHTML(c)}</span></div>`;
         }
         container.innerHTML += `<div onclick="renderLevel3('${escapeJS(m)}','${escapeJS(c)}')" class="cat-card layout-${layout}">${innerHtml}</div>`;
     });
     
-    // Sicurezza stack
     if (navigationStack[navigationStack.length-1] !== 'page-categories') {
         navigationStack.push('page-categories'); 
     }
@@ -280,6 +291,7 @@ function toggleFilter(filterType) {
     renderLevel3(currentMacro, currentCat, true);
 }
 
+// LOGICA PIATTI (Badge FULL WIDTH + AR in basso)
 function renderLevel3(m, c, isFiltering = false) {
     currentMacro = m; currentCat = c;
     if (!isFiltering) activeFilters = []; 
@@ -337,7 +349,7 @@ function renderLevel3(m, c, isFiltering = false) {
                 </a>
             </div>` : '';
 
-        // ITEM NAME E ITEM PRICE HANNO class="notranslate"
+        // NOMI PIATTI E PREZZI HANNO class="notranslate"
         container.innerHTML += `
         <div class="menu-card">
             <div class="item-card">
