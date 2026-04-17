@@ -1,11 +1,11 @@
-const VERSION = "11.5.4-BORDERS-THICKNESS";
+const VERSION = "12.0-SUPER-MOTORE-DINAMICO";
 console.log("App Version: " + VERSION);
 
 const urlParams = new URLSearchParams(window.location.search);
 const SHEET_ID = urlParams.get('id'); 
 let appConfig = {};
 let fullData = [];
-let navigationStack = ['page-macro'];
+let navigationStack = [];
 let currentMacro = '';
 let currentCat = '';
 let activeFilters = [];
@@ -127,7 +127,6 @@ function setupAutoTranslate() {
 function applyConfig() {
     const root = document.documentElement;
 
-    // Sfondo App (RAW GITHUB)
     const bgType = getVal('App_Bg_Type', 'color').toLowerCase().trim();
     const bgImgUrl = getVal('App_Bg_Image_URL', '');
     if (bgType === 'image' && bgImgUrl !== '') {
@@ -143,14 +142,12 @@ function applyConfig() {
     root.style.setProperty('--back-color', parseColor(getVal('Back_Btn_Color', '#ffffff')));
     root.style.setProperty('--back-shadow', getVal('Back_Btn_Shadow_Intensity', 'none') !== 'none' ? '0 4px 6px rgba(0,0,0,0.1)' : 'none');
     
-    // Colori Filtri
     const defaultFilterColor = getVal('Subtitle_Color', '#6b7280');
     root.style.setProperty('--filter-bg', parseColor(getVal('Filter_Bg_Color', 'transparent')));
     root.style.setProperty('--filter-text', parseColor(getVal('Filter_Text_Color', defaultFilterColor)));
     root.style.setProperty('--filter-active-bg', parseColor(getVal('Filter_Active_Bg_Color', defaultFilterColor)));
     root.style.setProperty('--filter-active-text', parseColor(getVal('Filter_Active_Text_Color', '#ffffff')));
 
-    // 🆕 BORDI: Enable + Width + Color
     const mBorderEn = isTruthy(getVal('Macro_Border_Enable', 'FALSE'));
     const mBorderW = getVal('Macro_Border_Width', '1px');
     root.style.setProperty('--macro-border', mBorderEn ? `${mBorderW} solid ${parseColor(getVal('Macro_Border_Color', '#e5e7eb'))}` : 'none');
@@ -163,7 +160,6 @@ function applyConfig() {
     const iBorderW = getVal('Item_Border_Width', '1px');
     root.style.setProperty('--item-border', iBorderEn ? `${iBorderW} solid ${parseColor(getVal('Item_Border_Color', '#e5e7eb'))}` : 'none');
 
-    // Macro
     root.style.setProperty('--macro-cols', getVal('Macro_Layout', 'grid').toLowerCase() === 'list' ? '1' : '2');
     root.style.setProperty('--macro-height', getVal('Macro_Height', '180px'));
     const mInt = getVal('Macro_Shadow_Intensity', 'medium').toLowerCase();
@@ -175,7 +171,6 @@ function applyConfig() {
     root.style.setProperty('--macro-align-v', getVal('Macro_Text_VAlign', 'center').toLowerCase() === 'top' ? 'flex-start' : (getVal('Macro_Text_VAlign', 'center').toLowerCase() === 'bottom' ? 'flex-end' : 'center'));
     root.style.setProperty('--macro-align-h', getVal('Macro_Text_HAlign', 'center').toLowerCase() === 'left' ? 'flex-start' : (getVal('Macro_Text_HAlign', 'center').toLowerCase() === 'right' ? 'flex-end' : 'center'));
 
-    // Categorie
     root.style.setProperty('--cat-cols', getVal('Cat_Layout', 'list').toLowerCase() === 'grid' ? '2' : '1');
     root.style.setProperty('--cat-bg', parseColor(getVal('Cat_Bg_Color', '#ffffff')));
     root.style.setProperty('--cat-height', getVal('Cat_Height', '120px'));
@@ -254,7 +249,7 @@ function updateLayout() {
     }, 50);
 }
 
-// --- FETCH MENU ---
+// --- FETCH MENU E ROUTING DINAMICO (IL SUPER MOTORE) ---
 async function fetchMenu() {
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=menu&t=${Date.now()}`;
     try {
@@ -265,7 +260,6 @@ async function fetchMenu() {
         for(let i=1; i<rows.length; i++){
             const c = safeParseCSVRow(rows[i]);
             if(c.length >= 3 && c[0]) {
-                // Bio in Colonna K (indice 10)
                 fullData.push({ 
                     macro: c[0], cat: c[1], name: c[2], desc: c[3], allerg: c[4], price: c[5], 
                     gf: c[6], vegan: c[7], veg: c[8], noalc: c[9], bio: c[10], active: c[11]||'TRUE', photo: c[12], ar: c[13] 
@@ -274,7 +268,21 @@ async function fetchMenu() {
         }
         fullData = fullData.filter(i => isTruthy(i.active));
         document.getElementById('loading-screen').classList.add('hidden');
-        renderLevel1();
+        
+        // 🆕 ROUTING DINAMICO
+        const menuLevels = parseInt(getVal('Menu_Levels', '3')) || 3;
+        
+        if (menuLevels === 1) {
+            navigationStack = ['page-items'];
+            renderLevel3('', ''); // Mostra tutto subito
+        } else if (menuLevels === 2) {
+            navigationStack = ['page-categories'];
+            renderLevel2(''); // Mostra categorie miste
+        } else {
+            navigationStack = ['page-macro'];
+            renderLevel1(); // Classico a 3 livelli
+        }
+
     } catch(e) { console.error(e); }
 }
 
@@ -294,7 +302,12 @@ function renderLevel1() {
 
 function renderLevel2(m) {
     const container = document.getElementById('page-categories');
-    const cats = [...new Set(fullData.filter(i => i.macro === m).map(i => i.cat))];
+    
+    // 🆕 Se il macro è vuoto (livello 2 diretto), prende TUTTE le categorie
+    let cats;
+    if (m === '') cats = [...new Set(fullData.map(i => i.cat))];
+    else cats = [...new Set(fullData.filter(i => i.macro === m).map(i => i.cat))];
+    
     container.className = 'cat-container'; container.innerHTML = '';
     const layout = getVal('Cat_Layout', 'list').toLowerCase();
 
@@ -328,24 +341,30 @@ function renderLevel3(m, c, isFiltering = false) {
     const container = document.getElementById('page-items');
     container.innerHTML = '';
     
-    let allCategoryItems = fullData.filter(i => i.macro === m && i.cat === c);
+    // 🆕 Gestione intelligente dei dati mostrati
+    let allCategoryItems = fullData;
+    if (m !== '' && c !== '') allCategoryItems = fullData.filter(i => i.macro === m && i.cat === c);
+    else if (m === '' && c !== '') allCategoryItems = fullData.filter(i => i.cat === c);
     
     if (!isFiltering) {
-        document.getElementById('sub-header-title').innerText = c;
+        let titleText = c !== '' ? c : (m !== '' ? m : getVal('Subtitle_Text', 'Menu'));
+        document.getElementById('sub-header-title').innerText = titleText;
+        
         let filtersHtml = '';
         
-        const isDrinks = m.toLowerCase().match(/bevand|bebid|drink/);
+        // 🆕 Controlla dinamicamente QUALI tag esistono nei piatti visualizzati, non in base al nome
+        const hasNoAlc = allCategoryItems.some(i => isTruthy(i.noalc));
+        const hasGf = allCategoryItems.some(i => isTruthy(i.gf));
+        const hasVegan = allCategoryItems.some(i => isTruthy(i.vegan));
+        const hasVeg = allCategoryItems.some(i => isTruthy(i.veg));
+        const hasBio = allCategoryItems.some(i => isTruthy(i.bio));
+
+        if(hasNoAlc) filtersHtml += `<button onclick="toggleFilter('noalc')" id="btn-noalc" class="filter-btn">Analcolico</button>`;
+        if(hasGf) filtersHtml += `<button onclick="toggleFilter('gf')" id="btn-gf" class="filter-btn">Senza Glutine</button>`;
+        if(hasVegan) filtersHtml += `<button onclick="toggleFilter('vegan')" id="btn-vegan" class="filter-btn">Vegano</button>`;
+        if(hasVeg) filtersHtml += `<button onclick="toggleFilter('veg')" id="btn-veg" class="filter-btn">Vegetariano</button>`;
+        if(hasBio) filtersHtml += `<button onclick="toggleFilter('bio')" id="btn-bio" class="filter-btn">Bio</button>`;
         
-        if (isDrinks) {
-            if(allCategoryItems.some(i => isTruthy(i.noalc))) filtersHtml += `<button onclick="toggleFilter('noalc')" id="btn-noalc" class="filter-btn">Analcolico</button>`;
-            if(allCategoryItems.some(i => isTruthy(i.gf))) filtersHtml += `<button onclick="toggleFilter('gf')" id="btn-gf" class="filter-btn">Senza Glutine</button>`;
-            if(allCategoryItems.some(i => isTruthy(i.bio))) filtersHtml += `<button onclick="toggleFilter('bio')" id="btn-bio" class="filter-btn">Bio</button>`;
-        } else {
-            if(allCategoryItems.some(i => isTruthy(i.gf))) filtersHtml += `<button onclick="toggleFilter('gf')" id="btn-gf" class="filter-btn">Senza Glutine</button>`;
-            if(allCategoryItems.some(i => isTruthy(i.vegan))) filtersHtml += `<button onclick="toggleFilter('vegan')" id="btn-vegan" class="filter-btn">Vegano</button>`;
-            if(allCategoryItems.some(i => isTruthy(i.veg))) filtersHtml += `<button onclick="toggleFilter('veg')" id="btn-veg" class="filter-btn">Vegetariano</button>`;
-            if(allCategoryItems.some(i => isTruthy(i.bio))) filtersHtml += `<button onclick="toggleFilter('bio')" id="btn-bio" class="filter-btn">Bio</button>`;
-        }
         document.getElementById('sub-header-filters').innerHTML = filtersHtml;
     }
 
@@ -419,7 +438,8 @@ function showPage(p) {
     const subHeader = document.getElementById('sub-header');
 
     if (backBtn) {
-        if (p === 'page-macro') { 
+        // 🆕 Nasconde il pulsante Indietro se ci troviamo nella pagina BASE (Livello 1, 2 o 3 dipendentemente dal config)
+        if (p === navigationStack[0]) { 
             backBtn.classList.remove('active'); 
             if(wrapper) wrapper.style.paddingLeft = '0px'; 
         } else { 
