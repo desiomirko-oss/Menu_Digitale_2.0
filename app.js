@@ -1,4 +1,4 @@
-const VERSION = "11.9-MASTER-BIO-DRINKS";
+const VERSION = "11.9-MASTER-DETAILS-CHEVRON-FIX";
 console.log("App Version: " + VERSION);
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -154,7 +154,7 @@ function applyConfig() {
     root.style.setProperty('--cat-align-h', getVal('Cat_Text_HAlign', 'left').toLowerCase() === 'center' ? 'center' : (getVal('Cat_Text_HAlign', 'left').toLowerCase() === 'right' ? 'flex-end' : 'flex-start'));
 
     if (getVal('App_Bg_Type', 'color').toLowerCase() === 'image' && getVal('App_Bg_Image_URL', '')) {
-        root.style.setProperty('--app-bg-image', `url('${getVal('App_Bg_Image_URL', '')}')`);
+        root.style.setProperty('--app-bg-image', `url('${escapeHTML(getVal('App_Bg_Image_URL', ''))}')`);
         root.style.setProperty('--app-bg-size', getVal('App_Bg_Image_Size', 'cover'));
         root.style.setProperty('--app-bg-position', getVal('App_Bg_Image_Position', 'center'));
     } else root.style.setProperty('--app-bg-image', 'none');
@@ -204,6 +204,7 @@ function applyConfig() {
     root.style.setProperty('--ar-btn-bg', parseColor(getVal('Item_AR_Btn_Bg', '#111827')));
     root.style.setProperty('--ar-btn-color', parseColor(getVal('Item_AR_Btn_Color', '#ffffff')));
     
+    // 🆕 INIETTA IL PARAMETRO CHEVRON COLOR
     root.style.setProperty('--chevron-color', parseColor(getVal('Chevron_Color', '#9ca3af')));
 }
 
@@ -229,7 +230,7 @@ function updateLayout() {
     }, 50);
 }
 
-// --- FETCH MENU (Aggiunta colonna Bio) ---
+// --- FETCH MENU ---
 async function fetchMenu() {
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=menu&t=${Date.now()}`;
     try {
@@ -240,10 +241,9 @@ async function fetchMenu() {
         for(let i=1; i<rows.length; i++){
             const c = safeParseCSVRow(rows[i]);
             if(c.length >= 3 && c[0]) {
-                // Catturiamo la colonna 15 (Bio)
                 fullData.push({ 
                     _id: i, macro: c[0], cat: c[1], name: c[2], desc: c[3], allerg: c[4], price: c[5], 
-                    gf: c[6], vegan: c[7], veg: c[8], noalc: c[9], active: c[10]||'TRUE', photo: c[11], ar: c[12], details: c[13] || '', bio: c[14] 
+                    gf: c[6], vegan: c[7], veg: c[8], noalc: c[9], active: c[10]||'TRUE', photo: c[11], ar: c[12], details: c[13] || '' 
                 });
             }
         }
@@ -294,7 +294,7 @@ function toggleFilter(filterType) {
     renderLevel3(currentMacro, currentCat, true);
 }
 
-// --- LOGICA PIATTI E BEVANDE (Con Bio e GF per entrambi) ---
+// LOGICA PIATTI 
 function renderLevel3(m, c, isFiltering = false) {
     currentMacro = m; currentCat = c;
     if (!isFiltering) activeFilters = []; 
@@ -307,22 +307,17 @@ function renderLevel3(m, c, isFiltering = false) {
         document.getElementById('sub-header-title').innerText = c;
         let filtersHtml = '';
         const isDrinks = m.toLowerCase().match(/bevand|bebid|drink/);
-        
-        // 🆕 Logica filtri aggiornata: GF e Bio valgono per tutto, NoAlc solo per le bevande, Vegano/Vegetariano solo per il cibo
         if (isDrinks) {
             if(allCategoryItems.some(i => isTruthy(i.noalc))) filtersHtml += `<button onclick="toggleFilter('noalc')" id="btn-noalc" class="filter-btn">Analcolico</button>`;
-            if(allCategoryItems.some(i => isTruthy(i.gf))) filtersHtml += `<button onclick="toggleFilter('gf')" id="btn-gf" class="filter-btn">Senza Glutine</button>`;
-            if(allCategoryItems.some(i => isTruthy(i.bio))) filtersHtml += `<button onclick="toggleFilter('bio')" id="btn-bio" class="filter-btn">Bio</button>`;
         } else {
             if(allCategoryItems.some(i => isTruthy(i.gf))) filtersHtml += `<button onclick="toggleFilter('gf')" id="btn-gf" class="filter-btn">Senza Glutine</button>`;
             if(allCategoryItems.some(i => isTruthy(i.vegan))) filtersHtml += `<button onclick="toggleFilter('vegan')" id="btn-vegan" class="filter-btn">Vegano</button>`;
             if(allCategoryItems.some(i => isTruthy(i.veg))) filtersHtml += `<button onclick="toggleFilter('veg')" id="btn-veg" class="filter-btn">Vegetariano</button>`;
-            if(allCategoryItems.some(i => isTruthy(i.bio))) filtersHtml += `<button onclick="toggleFilter('bio')" id="btn-bio" class="filter-btn">Bio</button>`;
         }
         document.getElementById('sub-header-filters').innerHTML = filtersHtml;
     }
 
-    ['gf', 'vegan', 'veg', 'noalc', 'bio'].forEach(f => {
+    ['gf', 'vegan', 'veg', 'noalc'].forEach(f => {
         const btn = document.getElementById(`btn-${f}`);
         if(btn) { activeFilters.includes(f) ? btn.classList.add('active') : btn.classList.remove('active'); }
     });
@@ -337,12 +332,12 @@ function renderLevel3(m, c, isFiltering = false) {
         if(isTruthy(i.vegan)) badges += `<span class="badge badge-vegan">Vegano</span>`;
         if(isTruthy(i.veg)) badges += `<span class="badge badge-veg">Vegetariano</span>`;
         if(isTruthy(i.noalc)) badges += `<span class="badge badge-noalc">Analcolico</span>`;
-        if(isTruthy(i.bio)) badges += `<span class="badge badge-bio">Bio</span>`; // 🆕 Aggiunta
         
         const hasDetails = i.details.trim() !== '';
         const cardClass = hasDetails ? 'menu-card clickable-card' : 'menu-card';
         const clickAction = hasDetails ? `onclick="openItemDetails(${i._id})"` : '';
         
+        // 🆕 La freccina ora vive dentro il badge container ed è flexboxata a destra
         const chevronHtml = hasDetails ? `<svg class="inline-chevron" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="9 18 15 12 9 6"></polyline></svg>` : '';
         
         let badgeHtml = '';
@@ -377,6 +372,7 @@ function renderLevel3(m, c, isFiltering = false) {
     }
 }
 
+// --- LIVELLO 4: DETTAGLIO PIATTO (ESATTO ALLA 11.9 ORIGINALE) ---
 function openItemDetails(id) {
     const item = fullData.find(x => x._id === id);
     if (!item) return;
@@ -388,13 +384,13 @@ function openItemDetails(id) {
     if(isTruthy(item.vegan)) badges += `<span class="badge badge-vegan">Vegano</span>`;
     if(isTruthy(item.veg)) badges += `<span class="badge badge-veg">Vegetariano</span>`;
     if(isTruthy(item.noalc)) badges += `<span class="badge badge-noalc">Analcolico</span>`;
-    if(isTruthy(item.bio)) badges += `<span class="badge badge-bio">Bio</span>`; // 🆕 Aggiunta
     const badgeHtml = badges ? `<div class="badge-container" style="justify-content:center; margin-bottom:15px;"><div class="badge-group">${badges}</div></div>` : '';
 
     const arHtml = item.ar ? `<div style="width: 100%; display: flex; justify-content: center; margin-top: 20px;"><a href="${escapeHTML(item.ar)}" target="_blank" class="ar-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Vedi Piatto in AR</a></div>` : '';
 
     const formattedDetails = escapeHTML(item.details).replace(/\n/g, '<br>');
 
+    // Mantenuto l'ordine esatto della 11.9
     container.innerHTML = `
         <div class="details-page-card">
             ${item.photo ? `<img src="${escapeHTML(item.photo)}" class="detail-photo">` : ''}
@@ -417,6 +413,7 @@ function openItemDetails(id) {
     showPage('page-item-details');
 }
 
+// --- NAVIGAZIONE GLOBALE A 4 LIVELLI ---
 function showPage(p) {
     const pageIds = ['page-macro', 'page-categories', 'page-items', 'page-item-details'];
     
