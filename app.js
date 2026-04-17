@@ -1,4 +1,4 @@
-const VERSION = "11.3-BADGES-FULL-WIDTH";
+const VERSION = "11.3-SMART-TRANSLATE";
 console.log("App Version: " + VERSION);
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -9,26 +9,6 @@ let navigationStack = ['page-macro'];
 let currentMacro = '';
 let currentCat = '';
 let activeFilters = [];
-
-// --- TRADUZIONE BASE ---
-function setupAutoTranslate() {
-    const baseLang = 'it'; 
-    const userLang = (navigator.language || navigator.userLanguage).slice(0, 2).toLowerCase();
-    if (userLang !== baseLang) {
-        const style = document.createElement('style');
-        style.innerHTML = `.goog-te-banner-frame.skiptranslate { display: none !important; } body { top: 0px !important; } #goog-gt-tt { display: none !important; }`;
-        document.head.appendChild(style);
-        document.cookie = `googtrans=/${baseLang}/${userLang}; path=/`;
-        const widgetDiv = document.createElement('div');
-        widgetDiv.id = 'google_translate_element';
-        widgetDiv.style.display = 'none';
-        document.body.appendChild(widgetDiv);
-        window.googleTranslateElementInit = function() { new google.translate.TranslateElement({pageLanguage: baseLang, autoDisplay: false}, 'google_translate_element'); };
-        const script = document.createElement('script');
-        script.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
-        document.body.appendChild(script);
-    }
-}
 
 // --- UTILITIES ---
 function cleanString(val) { return String(val || '').trim().replace(/^["']|["']$/g, '').replace(/,+$/, '').trim(); }
@@ -68,7 +48,6 @@ function parseColor(colorVal, opacityVal = 1) {
 
 // --- INIT ---
 async function init() {
-    setupAutoTranslate();
     if (!document.getElementById('sub-header')) {
         const sh = document.createElement('div');
         sh.id = 'sub-header';
@@ -78,6 +57,7 @@ async function init() {
     if (!SHEET_ID) return;
     await fetchConfig(); 
     applyConfig();       
+    setupAutoTranslate(); // Chiamato dopo fetchConfig per leggere Lang_Source
     await fetchMenu();
 }
 
@@ -92,6 +72,41 @@ async function fetchConfig() {
             if(cols.length >= 2 && cols[0].toLowerCase() !== 'property') appConfig[cols[0]] = cols[1];
         });
     } catch(e) { console.error(e); }
+}
+
+// --- TRADUTTORE INTELLIGENTE ---
+function setupAutoTranslate() {
+    const sourceLang = getVal('Lang_Source', 'it').toLowerCase(); // Legge lingua base
+    let userLang = navigator.language || navigator.userLanguage;
+    userLang = userLang.slice(0, 2).toLowerCase();
+
+    // Se il telefono ha la stessa lingua del menu, NON TRADURRE
+    if (userLang === sourceLang) return;
+
+    // Altrimenti, imposta i cookie forzati e avvia Google Translate
+    document.cookie = `googtrans=/${sourceLang}/${userLang}; path=/`;
+
+    const widgetDiv = document.createElement('div');
+    widgetDiv.id = 'google_translate_element';
+    widgetDiv.style.display = 'none';
+    document.body.appendChild(widgetDiv);
+
+    window.googleTranslateElementInit = function() { 
+        new google.translate.TranslateElement({ pageLanguage: sourceLang, autoDisplay: false }, 'google_translate_element'); 
+    };
+
+    const script = document.createElement('script');
+    script.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+    document.body.appendChild(script);
+
+    // Sistema di sicurezza anti-banner: rimette la pagina al suo posto per 5 secondi
+    const killerInterval = setInterval(() => {
+        const frames = document.querySelectorAll('.goog-te-banner-frame');
+        frames.forEach(f => { f.style.display = 'none'; f.style.visibility = 'hidden'; f.style.height = '0px'; });
+        if (document.body.style.top !== '0px') document.body.style.top = '0px';
+        if (document.documentElement.style.marginTop !== '0px') document.documentElement.style.marginTop = '0px';
+    }, 50);
+    setTimeout(() => clearInterval(killerInterval), 5000);
 }
 
 function applyConfig() {
@@ -139,7 +154,8 @@ function applyConfig() {
     logoCont.style.marginTop = getVal('Logo_Margin_Top', '0px');
     logoCont.style.marginBottom = '0px'; 
     if (logoUrl) {
-        logoCont.innerHTML = `<img src="${escapeHTML(logoUrl)}" id="app-logo" style="max-height:${escapeHTML(getVal('Logo_Height', '80px'))}; object-fit:contain;" translate="no">`;
+        // AGGIUNTO class="notranslate" per proteggere il logo
+        logoCont.innerHTML = `<img src="${escapeHTML(logoUrl)}" id="app-logo" style="max-height:${escapeHTML(getVal('Logo_Height', '80px'))}; object-fit:contain;" translate="no" class="notranslate">`;
         document.getElementById('app-logo').onload = updateLayout;
     }
 
@@ -196,6 +212,7 @@ function updateLayout() {
     }, 50);
 }
 
+// --- FETCH MENU ---
 async function fetchMenu() {
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=menu&t=${Date.now()}`;
     try {
@@ -226,7 +243,8 @@ function renderLevel1() {
         const searchKey = 'Macro_Img_' + m.replace(/\s+/g, '_');
         const imgUrl = getVal(searchKey, '');
         const bgStyle = imgUrl ? `background-image: url('${escapeHTML(imgUrl)}');` : '';
-        container.innerHTML += `<div onclick="renderLevel2('${escapeJS(m)}')" class="macro-card" style="${bgStyle}"><div class="macro-overlay"></div><span class="macro-text-inside">${escapeHTML(m)}</span></div>`;
+        // MACRO TITLE NOTRANSLATE
+        container.innerHTML += `<div onclick="renderLevel2('${escapeJS(m)}')" class="macro-card" style="${bgStyle}"><div class="macro-overlay"></div><span class="macro-text-inside notranslate">${escapeHTML(m)}</span></div>`;
     });
     showPage('page-macro');
 }
@@ -240,16 +258,17 @@ function renderLevel2(m) {
     cats.forEach(c => {
         const imgUrl = getVal('Cat_Img_' + c.replace(/\s+/g, '_'), '');
         let innerHtml = '';
+        // CATEGORY TITLE NOTRANSLATE
         if (imgUrl) {
-            if (layout === 'grid') innerHtml = `<div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-grid" loading="lazy"></div><div class="cat-text-wrapper"><span class="cat-text">${escapeHTML(c)}</span></div>`;
-            else innerHtml = `<div class="cat-text-wrapper"><span class="cat-text">${escapeHTML(c)}</span></div><div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-list" loading="lazy"></div>`;
+            if (layout === 'grid') innerHtml = `<div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-grid" loading="lazy"></div><div class="cat-text-wrapper"><span class="cat-text notranslate">${escapeHTML(c)}</span></div>`;
+            else innerHtml = `<div class="cat-text-wrapper"><span class="cat-text notranslate">${escapeHTML(c)}</span></div><div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-list" loading="lazy"></div>`;
         } else {
-            innerHtml = `<div class="cat-text-wrapper" style="width:100%;"><span class="cat-text">${escapeHTML(c)}</span></div>`;
+            innerHtml = `<div class="cat-text-wrapper" style="width:100%;"><span class="cat-text notranslate">${escapeHTML(c)}</span></div>`;
         }
         container.innerHTML += `<div onclick="renderLevel3('${escapeJS(m)}','${escapeJS(c)}')" class="cat-card layout-${layout}">${innerHtml}</div>`;
     });
     
-    // Fix di sicurezza per la navigazione
+    // Sicurezza stack
     if (navigationStack[navigationStack.length-1] !== 'page-categories') {
         navigationStack.push('page-categories'); 
     }
@@ -261,7 +280,6 @@ function toggleFilter(filterType) {
     renderLevel3(currentMacro, currentCat, true);
 }
 
-// LOGICA PIATTI (Badge FULL WIDTH + AR in basso)
 function renderLevel3(m, c, isFiltering = false) {
     currentMacro = m; currentCat = c;
     if (!isFiltering) activeFilters = []; 
@@ -306,10 +324,8 @@ function renderLevel3(m, c, isFiltering = false) {
         if(isTruthy(i.veg)) badges += `<span class="badge badge-veg">Vegetariano</span>`;
         if(isTruthy(i.noalc)) badges += `<span class="badge badge-noalc">Analcolico</span>`;
         
-        // I badge hanno il 100% della larghezza sotto la foto
         const badgeHtml = badges ? `<div class="badge-container">${badges}</div>` : '';
         
-        // Bottone AR centrato in fondo
         const arHtml = i.ar ? `
             <div style="width: 100%; display: flex; justify-content: center; margin-top: 15px;">
                 <a href="${escapeHTML(i.ar)}" target="_blank" class="ar-btn">
@@ -321,14 +337,14 @@ function renderLevel3(m, c, isFiltering = false) {
                 </a>
             </div>` : '';
 
-        // STRUTTURA: I badge e l'AR sono fuori dall'impaginazione della foto
+        // ITEM NAME E ITEM PRICE HANNO class="notranslate"
         container.innerHTML += `
         <div class="menu-card">
             <div class="item-card">
                 <div style="flex-grow:1;">
-                    <div class="item-name">${escapeHTML(i.name)}</div>
+                    <div class="item-name notranslate">${escapeHTML(i.name)}</div>
                     <div class="item-desc">${escapeHTML(i.desc)}</div>
-                    <div class="item-price">${escapeHTML(i.price)}</div>
+                    <div class="item-price notranslate">${escapeHTML(i.price)}</div>
                 </div>
                 ${i.photo ? `<img src="${escapeHTML(i.photo)}" class="item-photo" style="margin-left: 10px;" loading="lazy">` : ''}
             </div>
