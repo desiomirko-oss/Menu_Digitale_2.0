@@ -1,4 +1,4 @@
-const VERSION = "12.2-TRANSLATOR-NUKE";
+const VERSION = "14.0-FULL-VAULT";
 console.log("App Version: " + VERSION);
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -46,19 +46,33 @@ function parseColor(colorVal, opacityVal = 1) {
     return c; 
 }
 
-// --- INIT ---
+// --- INIT (Iniezione Strutture Base) ---
 async function init() {
+    // 1. Inietta Sub-Header
     if (!document.getElementById('sub-header')) {
-        const sh = document.createElement('div');
-        sh.id = 'sub-header';
-        sh.innerHTML = `<h2 id="sub-header-title"></h2><div id="sub-header-filters" class="filters-container"></div>`;
+        const sh = document.createElement('div'); sh.id = 'sub-header';
+        sh.innerHTML = `<h2 id="sub-header-title" class="notranslate"></h2><div id="sub-header-filters" class="filters-container"></div>`;
         document.body.appendChild(sh);
     }
+    // 2. Inietta Sipario Portrait Lock
+    if (!document.getElementById('portrait-warning')) {
+        const pw = document.createElement('div'); pw.id = 'portrait-warning';
+        pw.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg><h2 style="margin-bottom: 10px; font-family: sans-serif;">Ruota il dispositivo</h2><p style="font-family: sans-serif; color: #9ca3af; font-size: 14px;">Il menu è ottimizzato per la visualizzazione in verticale.</p>`;
+        document.body.appendChild(pw);
+    }
+    // 3. Inietta Prompt PWA
+    if (!document.getElementById('pwa-prompt')) {
+        const pwa = document.createElement('div'); pwa.id = 'pwa-prompt';
+        pwa.innerHTML = `<div class="pwa-box"><button class="pwa-close" onclick="closePWA()">×</button><div class="pwa-title">Installa l'App</div><div class="pwa-desc">Aggiungi questo menu alla schermata Home per un'esperienza offline e a schermo intero.</div><div class="pwa-instruction">Tocca <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg> e seleziona "Aggiungi a Home"</div></div>`;
+        document.body.appendChild(pwa);
+    }
+
     if (!SHEET_ID) return;
     await fetchConfig(); 
     applyConfig();       
     setupAutoTranslate(); 
     await fetchMenu();
+    checkPWA(); // Avvia controllo popup PWA
 }
 
 async function fetchConfig() {
@@ -74,7 +88,28 @@ async function fetchConfig() {
     } catch(e) { console.error(e); }
 }
 
-// --- MODULO 12.2: TRANSLATOR KILLER AGGRESSIVO E NOTRANSLATE ---
+// --- MODULO PWA PROMPT ---
+function closePWA() {
+    localStorage.setItem('pwa_prompt_dismissed', 'true');
+    document.getElementById('pwa-prompt').classList.remove('visible');
+}
+function checkPWA() {
+    // Controlla se abilitato da Google Sheets
+    if (!isTruthy(getVal('PWA_Install_Prompt', 'FALSE'))) return;
+    // Controlla se l'app è già installata (Standalone mode)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (isStandalone) return;
+    // Controlla se l'utente lo ha già chiuso in precedenza
+    if (localStorage.getItem('pwa_prompt_dismissed')) return;
+
+    // Mostra con un elegante ritardo di 3 secondi
+    setTimeout(() => {
+        const pwaEl = document.getElementById('pwa-prompt');
+        if (pwaEl) pwaEl.classList.add('visible');
+    }, 3000);
+}
+
+// --- MODULO TRANSLATOR KILLER AGGRESSIVO E NOTRANSLATE ---
 function setupAutoTranslate() {
     const sourceLang = getVal('Lang_Source', 'es').toLowerCase();
     const targetLangsStr = getVal('Lang_Targets', 'ALL').toUpperCase();
@@ -96,10 +131,7 @@ function setupAutoTranslate() {
     document.body.appendChild(widgetDiv);
 
     window.googleTranslateElementInit = function() { 
-        new google.translate.TranslateElement({
-            pageLanguage: sourceLang, 
-            autoDisplay: false
-        }, 'google_translate_element'); 
+        new google.translate.TranslateElement({ pageLanguage: sourceLang, autoDisplay: false }, 'google_translate_element'); 
     };
 
     const script = document.createElement('script');
@@ -109,19 +141,14 @@ function setupAutoTranslate() {
     // KILLER: Resetta forzatamente l'html e il body se Google cerca di spostarli
     const killerInterval = setInterval(() => {
         const frames = document.querySelectorAll('.goog-te-banner-frame');
-        frames.forEach(f => {
-            f.style.display = 'none';
-            f.style.visibility = 'hidden';
-            f.style.height = '0px';
-        });
-        
+        frames.forEach(f => { f.style.display = 'none'; f.style.visibility = 'hidden'; f.style.height = '0px'; });
         if (document.body.style.top !== '0px') document.body.style.top = '0px';
         if (document.documentElement.style.marginTop !== '0px') document.documentElement.style.marginTop = '0px';
     }, 50);
-
     setTimeout(() => clearInterval(killerInterval), 8000);
 }
 
+// --- STILIZZAZIONE CSS VARIABLES ---
 function applyConfig() {
     const root = document.documentElement;
 
@@ -167,7 +194,6 @@ function applyConfig() {
     logoCont.style.marginTop = getVal('Logo_Margin_Top', '0px');
     logoCont.style.marginBottom = '0px'; 
     if (logoUrl) {
-        // AGGIUNTO class="notranslate" al LOGO
         logoCont.innerHTML = `<img src="${escapeHTML(logoUrl)}" id="app-logo" style="max-height:${escapeHTML(getVal('Logo_Height', '80px'))}; object-fit:contain;" translate="no" class="notranslate">`;
         document.getElementById('app-logo').onload = updateLayout;
     }
@@ -256,7 +282,8 @@ function renderLevel1() {
         const searchKey = 'Macro_Img_' + m.replace(/\s+/g, '_');
         const imgUrl = getVal(searchKey, '');
         const bgStyle = imgUrl ? `background-image: url('${escapeHTML(imgUrl)}');` : '';
-        container.innerHTML += `<div onclick="renderLevel2('${escapeJS(m)}')" class="macro-card" style="${bgStyle}"><div class="macro-overlay"></div><span class="macro-text-inside">${escapeHTML(m)}</span></div>`;
+        // MACRO TITLE NOTRANSLATE
+        container.innerHTML += `<div onclick="renderLevel2('${escapeJS(m)}')" class="macro-card" style="${bgStyle}"><div class="macro-overlay"></div><span class="macro-text-inside notranslate">${escapeHTML(m)}</span></div>`;
     });
     showPage('page-macro');
 }
@@ -270,11 +297,12 @@ function renderLevel2(m) {
     cats.forEach(c => {
         const imgUrl = getVal('Cat_Img_' + c.replace(/\s+/g, '_'), '');
         let innerHtml = '';
+        // CATEGORY TITLE NOTRANSLATE
         if (imgUrl) {
-            if (layout === 'grid') innerHtml = `<div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-grid" loading="lazy"></div><div class="cat-text-wrapper"><span class="cat-text">${escapeHTML(c)}</span></div>`;
-            else innerHtml = `<div class="cat-text-wrapper"><span class="cat-text">${escapeHTML(c)}</span></div><div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-list" loading="lazy"></div>`;
+            if (layout === 'grid') innerHtml = `<div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-grid" loading="lazy"></div><div class="cat-text-wrapper"><span class="cat-text notranslate">${escapeHTML(c)}</span></div>`;
+            else innerHtml = `<div class="cat-text-wrapper"><span class="cat-text notranslate">${escapeHTML(c)}</span></div><div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-list" loading="lazy"></div>`;
         } else {
-            innerHtml = `<div class="cat-text-wrapper" style="width:100%;"><span class="cat-text">${escapeHTML(c)}</span></div>`;
+            innerHtml = `<div class="cat-text-wrapper" style="width:100%;"><span class="cat-text notranslate">${escapeHTML(c)}</span></div>`;
         }
         container.innerHTML += `<div onclick="renderLevel3('${escapeJS(m)}','${escapeJS(c)}')" class="cat-card layout-${layout}">${innerHtml}</div>`;
     });
@@ -343,7 +371,7 @@ function renderLevel3(m, c, isFiltering = false) {
                 </a>
             </div>` : '';
 
-        // AGGIUNTA CLASSE notranslate A NOME E PREZZO
+        // ITEM NAME E ITEM PRICE HANNO class="notranslate"
         container.innerHTML += `
         <div class="menu-card">
             <div class="item-card">
