@@ -34,13 +34,22 @@
     --item-border: none;
 }
 
-/* 🚨 BLOCCO TRADUTTORE INVISIBILE 🚨 */
+/* 🚨 BLOCCO TRADUTTORE INVISIBILE E ANTI-GLITCH 🚨 */
 iframe.goog-te-banner-frame, .goog-te-banner-frame { display: none !important; visibility: hidden !important; height: 0 !important; width: 0 !important; border: none !important; }
 html { margin-top: 0px !important; height: 100% !important; }
 body { top: 0px !important; position: static !important; min-height: 100vh !important; }
 #goog-gt-tt, .goog-tooltip, .goog-tooltip:hover { display: none !important; visibility: hidden !important; }
 .goog-text-highlight { background-color: transparent !important; border: none !important; box-shadow: none !important; }
 #google_translate_element { display: none !important; height: 0 !important; }
+
+/* FIX: Uccide lo sfondo grigio/blu che Google mette sui testi tradotti */
+font { background: transparent !important; background-color: transparent !important; box-shadow: none !important; }
+.filter-btn * { background-color: transparent !important; color: inherit !important; }
+
+/* FIX: Forza le maiuscole corrette a prescindere da cosa decide Google Translate */
+/* text-transform: capitalize; farà sì che la prima lettera di ogni parola sia SEMPRE maiuscola */
+.filter-btn { text-transform: capitalize !important; }
+.item-name { text-transform: capitalize !important; }
 
 /* SFONDO APP FISSO PER MOBILE */
 body {
