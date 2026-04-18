@@ -313,21 +313,48 @@ function renderLevel1() {
 
 function renderLevel2(m) {
     const container = document.getElementById('page-categories');
-    
     let cats = m === '' ? [...new Set(fullData.map(i => i.cat))] : [...new Set(fullData.filter(i => i.macro === m).map(i => i.cat))];
     
-    container.className = 'cat-container'; container.innerHTML = '';
+    container.className = 'cat-container'; 
+    container.innerHTML = '';
+
+    // Legge le nuove impostazioni dal Config
     const layout = getVal('Cat_Layout', 'list').toLowerCase();
+    const showImg = isTruthy(getVal('Cat_Show_Image', 'SI'));
+    const imgWidth = getVal('Cat_Image_Width', '40%');
+    
+    // Applica altezza dinamica al CSS
+    document.documentElement.style.setProperty('--cat-height', getVal('Cat_Height', '120px'));
+    document.documentElement.style.setProperty('--cat-img-w', imgWidth);
 
     cats.forEach(c => {
         const imgUrl = getVal('Cat_Img_' + c.replace(/\s+/g, '_'), '');
         let innerHtml = '';
-        if (imgUrl) {
-            if (layout === 'grid') innerHtml = `<div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-grid" loading="lazy"></div><div class="cat-text-wrapper"><span class="cat-text">${escapeHTML(c)}</span></div>`;
-            else innerHtml = `<div class="cat-text-wrapper"><span class="cat-text">${escapeHTML(c)}</span></div><div class="cat-img-wrapper"><img src="${escapeHTML(imgUrl)}" class="cat-img-list" loading="lazy"></div>`;
+        
+        // Logica: Mostra immagine solo se abilitata e se esiste l'URL
+        if (showImg && imgUrl) {
+            if (layout === 'grid') {
+                innerHtml = `
+                    <div class="cat-img-wrapper" style="width:100%; height:60%;">
+                        <img src="${escapeHTML(imgUrl)}" class="cat-img-grid" loading="lazy">
+                    </div>
+                    <div class="cat-text-wrapper">
+                        <span class="cat-text">${escapeHTML(c)}</span>
+                    </div>`;
+            } else {
+                innerHtml = `
+                    <div class="cat-text-wrapper">
+                        <span class="cat-text">${escapeHTML(c)}</span>
+                    </div>
+                    <div class="cat-img-wrapper" style="width:var(--cat-img-w);">
+                        <img src="${escapeHTML(imgUrl)}" class="cat-img-list" loading="lazy">
+                    </div>`;
+            }
         } else {
+            // Se l'immagine è disabilitata o manca, mostra solo il testo a tutta larghezza
             innerHtml = `<div class="cat-text-wrapper" style="width:100%;"><span class="cat-text">${escapeHTML(c)}</span></div>`;
         }
+        
         container.innerHTML += `<div onclick="renderLevel3('${escapeJS(m)}','${escapeJS(c)}')" class="cat-card layout-${layout}">${innerHtml}</div>`;
     });
     
