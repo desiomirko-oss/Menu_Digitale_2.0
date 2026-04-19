@@ -118,8 +118,15 @@ body::before {
 .macro-card:active { transform: scale(0.98); }
 .macro-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.3); z-index: 1; }
 .macro-card.no-image .macro-overlay { display: none; }
-.macro-text-inside { color: var(--macro-text-color); font-family: var(--macro-text-font); font-weight: var(--macro-text-weight); text-shadow: var(--macro-text-shadow); text-align: var(--macro-align-h); z-index: 10; font-size: 1.5rem; text-transform: uppercase; letter-spacing: 1px; }
-
+.macro-text-inside { 
+    color: var(--macro-text-color); 
+    font-family: var(--macro-text-font); 
+    font-weight: var(--macro-text-weight); 
+    text-shadow: var(--macro-text-shadow);
+    /* AGGIUNGI QUESTA RIGA SOTTO */
+    font-size: var(--macro-text-size); 
+    text-transform: uppercase !important; /* Manteniamo lo scudo per le maiuscole */
+}
 /* CATEGORY CARD POTENZIATA */
 .cat-container { 
     display: grid; 
