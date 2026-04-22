@@ -631,7 +631,7 @@ function initInstallPopup() {
         <div class="pwa-title">${title}</div>
         <div class="pwa-desc">${instructions}</div>
         <div class="pwa-btns">
-            <button class="pwa-btn-close" onclick="dismissPwaPopup()">Non ora</button>
+            <button class="pwa-btn-close" onclick="dismissPwaPopup()">${escapeHTML(getVal('UI_Install_Btn_No', 'Non ora'))}</button>
             ${isiOS ? '' : `<button class="pwa-btn-main" onclick="triggerAndroidInstall()">Installa</button>`}
         </div>
     `;
