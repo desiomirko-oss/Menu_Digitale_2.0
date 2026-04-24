@@ -226,8 +226,7 @@ function applyConfig() {
     
     root.style.setProperty('--header-bg', parseColor(getVal('Header_Color', '#ffffff'), isTruthy(getVal('Header_Transparent', 'FALSE')) ? '0.5' : '1'));
     root.style.setProperty('--header-shadow', getVal('Header_Shadow_Intensity', 'medium') !== 'none' ? '0 4px 15px rgba(0,0,0,0.08)' : 'none');
-    root.style.setProperty('--app-subtitle-spacing', getVal('App_Subtitle_Spacing', 'normal'));
-    
+       
     const logoCont = document.getElementById('logo-container');
     const logoUrl = getVal('Logo_Image_URL', '');
     const align = getVal('Logo_Align', 'center').toLowerCase();
@@ -242,6 +241,7 @@ function applyConfig() {
     const sub = document.getElementById('subtitle-container');
     const subText = getVal('Subtitle_Text', '');
     root.style.setProperty('--subtitle-color', parseColor(getVal('Subtitle_Color', '#6b7280')));
+    root.style.setProperty('--subtitle-spacing', getVal('App_Subtitle_Spacing', 'normal'));
     root.style.setProperty('--subtitle-font', getVal('Subtitle_Font', 'sans-serif'));
     if (subText !== '') {
         sub.style.display = 'block'; sub.innerText = subText;
