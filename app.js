@@ -236,10 +236,7 @@ function applyConfig() {
     if (logoUrl) {
         logoCont.innerHTML = `<img src="${escapeHTML(logoUrl)}" id="app-logo" style="max-height:${escapeHTML(getVal('Logo_Height', '80px'))}; object-fit:contain;" translate="no" class="notranslate">`;
         document.getElementById('app-logo').onload = updateLayout;
-        // AGGIUNGI QUESTA RIGA QUI:
-    loadGoogleFonts();
-
-    const root = document.documentElement;
+   
     }
 
     const sub = document.getElementById('subtitle-container');
@@ -670,38 +667,7 @@ async function triggerAndroidInstall() {
         const { outcome } = await deferredPrompt.userChoice;
         if (outcome === 'accepted') dismissPwaPopup();
         deferredPrompt = null;
-    }
-    
-// --- PONTE AUTOMATICO PER GOOGLE FONTS ---
-function loadGoogleFonts() {
-    // Cerchiamo i font che hai scritto nelle tue celle del Config
-    const fontProperties = ['Header_Font', 'Macro_Text_Font', 'Cat_Text_Font', 'Body_Font'];
-    let fontsToLoad = [];
-
-    fontProperties.forEach(prop => {
-        let fontName = getVal(prop, '');
-        // Escludiamo i font di sistema (quelli che il telefono ha già)
-        const webSafe = ['Arial', 'Helvetica', 'Verdana', 'Times New Roman', 'Georgia', 'sans-serif', 'serif', 'monospace'];
-        
-        if (fontName && !webSafe.includes(fontName)) {
-            fontsToLoad.push(fontName.trim().replace(/ /g, '+'));
-        }
-    });
-
-    if (fontsToLoad.length > 0) {
-        const uniqueFonts = [...new Set(fontsToLoad)]; // Evitiamo duplicati
-        const fontUrl = `https://fonts.googleapis.com/css2?family=${uniqueFonts.join('&family=')}&display=swap`;
-        
-        let linkTag = document.getElementById('dynamic-google-fonts');
-        if (!linkTag) {
-            linkTag = document.createElement('link');
-            linkTag.id = 'dynamic-google-fonts';
-            linkTag.rel = 'stylesheet';
-            document.head.appendChild(linkTag);
-        }
-        linkTag.href = fontUrl;
-        console.log("Font caricati automaticamente:", uniqueFonts);
-    }
+    }    
 }
 
 init();
