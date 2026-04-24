@@ -226,7 +226,8 @@ function applyConfig() {
     
     root.style.setProperty('--header-bg', parseColor(getVal('Header_Color', '#ffffff'), isTruthy(getVal('Header_Transparent', 'FALSE')) ? '0.5' : '1'));
     root.style.setProperty('--header-shadow', getVal('Header_Shadow_Intensity', 'medium') !== 'none' ? '0 4px 15px rgba(0,0,0,0.08)' : 'none');
-
+    root.style.setProperty('--app-subtitle-spacing', getVal('App_Subtitle_Spacing', 'normal'));
+    
     const logoCont = document.getElementById('logo-container');
     const logoUrl = getVal('Logo_Image_URL', '');
     const align = getVal('Logo_Align', 'center').toLowerCase();
@@ -247,8 +248,7 @@ function applyConfig() {
         sub.style.color = 'var(--subtitle-color)'; sub.style.fontSize = getVal('Subtitle_Size', '14px');
         sub.style.fontFamily = 'var(--subtitle-font)'; sub.style.fontWeight = isTruthy(getVal('Subtitle_Bold', 'FALSE')) ? 'bold' : 'normal';
         sub.style.textAlign = getVal('Subtitle_Align', 'center').toLowerCase(); sub.style.marginTop = getVal('Subtitle_Margin_Top', '5px');
-        // Aggiungi questa riga dentro applyConfig()
-    document.documentElement.style.setProperty('--app-subtitle-spacing', getVal('App_Subtitle_Spacing', 'normal'));
+       
     } else sub.style.display = 'none';
 
     root.style.setProperty('--filter-margin', getVal('SubHeader_Filter_Margin', '12px'));
