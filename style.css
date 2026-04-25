@@ -248,3 +248,33 @@ body::before {
 
 /* Icona Share specifica per iOS */
 .ios-share-icon { width: 20px; vertical-align: middle; margin: 0 3px; }
+/* =========================================================
+   ADATTAMENTO DESKTOP / TABLET (Schermi più larghi di 768px)
+   ========================================================= */
+@media (min-width: 768px) {
+    
+    /* 1. Contenitore Principale: Evita che l'app si allarghi all'infinito */
+    body {
+        max-width: 1000px; /* Larghezza massima su PC */
+        margin: 0 auto;    /* Centra l'app nello schermo del monitor */
+        box-shadow: 0 0 30px rgba(0, 0, 0, 0.1); /* Crea un bell'effetto "foglio" su PC */
+        border-radius: 0 0 15px 15px; /* Ammorbidisce gli angoli in basso */
+    }
+
+    /* 2. Le Categorie e i Piatti diventano una Griglia (2 o 3 colonne) */
+    #categories-container,
+    #items-container,
+    #level3-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 20px;
+        padding: 20px;
+        align-items: start;
+    }
+
+    /* 3. Aggiustamento per le immagini interne alle card su PC */
+    .item-card img, .category-card img {
+        height: 250px; /* Le foto possono essere leggermente più grandi su PC */
+        object-fit: cover;
+    }
+}
